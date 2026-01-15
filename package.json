@@ -1,0 +1,26 @@
+
+{
+  "name": "ncr-management-system",
+  "version": "1.0.0",
+  "description": "25년 부적합 LIST 관리 시스템",
+  "main": "index.tsx",
+  "scripts": {
+    "start": "serve -l 8080 .",
+    "build": "echo 'No build step required for esm.sh version'"
+  },
+  "dependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.6.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "serve": "^14.2.4"
+  },
+  "keywords": [
+    "QMS",
+    "NCR",
+    "8D-Report"
+  ],
+  "author": "Quality Assurance Team",
+  "license": "ISC"
+}
