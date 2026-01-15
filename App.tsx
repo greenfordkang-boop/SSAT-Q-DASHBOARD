@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -27,6 +27,7 @@ const App: React.FC = () => {
   
   const [ncrData, setNcrData] = useState<NCREntry[]>([]);
   const [customerMetrics, setCustomerMetrics] = useState<CustomerMetric[]>([]);
+  const [supplierMetrics, setSupplierMetrics] = useState<SupplierMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -199,6 +200,29 @@ const App: React.FC = () => {
       }));
       setCustomerMetrics(typedMetrics);
 
+      // 3. 협력업체 품질 실적 가져오기
+      const { data: sMetrics, error: sError } = await supabase
+        .from('supplier_metrics')
+        .select('*')
+        .order('month', { ascending: true });
+
+      if (sError) {
+         console.warn("Supplier Metrics Fetch Warning:", sError.message);
+      }
+
+      const typedSupplierMetrics = (sMetrics || []).map((m: any) => ({
+        id: m.id,
+        year: Number(m.year),
+        supplier: m.supplier,
+        month: Number(m.month),
+        target: Number(m.target),
+        incomingQty: Number(m.incoming_qty || 0),
+        inspectionQty: Number(m.inspection_qty || 0),
+        defects: Number(m.defects || 0),
+        actual: Number(m.actual || 0)
+      }));
+      setSupplierMetrics(typedSupplierMetrics);
+
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
       handleError(e, "데이터 초기화");
@@ -210,7 +234,7 @@ const App: React.FC = () => {
   const handleSaveCustomerMetrics = async (payload: CustomerMetric | CustomerMetric[]) => {
     try {
       const metricsArray = Array.isArray(payload) ? payload : [payload];
-      
+
       const dbPayload = metricsArray.map(m => ({
         year: m.year,
         month: m.month,
@@ -238,6 +262,42 @@ const App: React.FC = () => {
 
     } catch (e: any) {
       handleError(e, "지표 저장");
+      return false;
+    }
+  };
+
+  const handleSaveSupplierMetrics = async (payload: SupplierMetric | SupplierMetric[]) => {
+    try {
+      const metricsArray = Array.isArray(payload) ? payload : [payload];
+
+      const dbPayload = metricsArray.map(m => ({
+        year: m.year,
+        month: m.month,
+        supplier: m.supplier,
+        target: m.target,
+        incoming_qty: m.incomingQty,
+        inspection_qty: m.inspectionQty,
+        defects: m.defects,
+        actual: m.actual
+      }));
+
+      console.log("협력업체 지표 전송 데이터:", dbPayload);
+
+      const { data, error } = await supabase
+        .from('supplier_metrics')
+        .upsert(dbPayload, { onConflict: 'supplier,year,month' })
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      console.log("협력업체 지표 저장 성공:", data);
+      await fetchAllData();
+      return true;
+
+    } catch (e: any) {
+      handleError(e, "협력업체 지표 저장");
       return false;
     }
   };
@@ -414,7 +474,7 @@ const App: React.FC = () => {
               </div>
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
-            {activeTab === 'incoming' && <IncomingQuality />}
+            {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
             {activeTab === 'process' && <ProcessQuality />}
             {activeTab === 'outgoing' && <OutgoingQuality />}
           </div>
