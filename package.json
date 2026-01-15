@@ -5,7 +5,7 @@
   "description": "25년 부적합 LIST 관리 시스템",
   "main": "index.tsx",
   "scripts": {
-    "start": "serve -l 8080 .",
+    "start": "serve -s -l 8080 .",
     "build": "echo 'No build step required for esm.sh version'"
   },
   "dependencies": {

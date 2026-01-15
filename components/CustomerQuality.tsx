@@ -74,19 +74,19 @@ const CustomerQuality: React.FC<CustomerQualityProps> = ({ metrics, onSaveMetric
   const handleEntrySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (entryForm.inspectionQty < 0 || entryForm.defects < 0) {
-      alert("수량은 0 이상이어야 합니다.");
+      alert("수량과 불량수는 0 이상이어야 합니다.");
       return;
     }
-    setIsSaving(true);
     
+    setIsSaving(true);
     // 비동기 저장 호출
     const success = await onSaveMetric(entryForm);
-    
+    setIsSaving(false);
+
     if (success) {
         setShowEntryModal(false);
-        alert('실적이 정상적으로 저장되었습니다.');
+        alert('실적이 저장되었습니다.');
     }
-    setIsSaving(false);
   };
 
   const handleAnnualTargetSubmit = async (e: React.FormEvent) => {
@@ -113,11 +113,12 @@ const CustomerQuality: React.FC<CustomerQualityProps> = ({ metrics, onSaveMetric
       });
 
       const success = await onSaveMetric(batchPayload);
+      setIsSaving(false);
+
       if (success) {
         setShowTargetModal(false);
         alert(`${targetYear}년 목표가 전산에 일괄 등록되었습니다.`);
       }
-      setIsSaving(false);
     }
   };
 
