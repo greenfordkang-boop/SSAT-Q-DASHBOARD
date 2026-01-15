@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // 기본값: 사용자가 제공한 값 적용
 const DEFAULT_URL = 'https://xjjsqyawvojybuyrehrr.supabase.co';
 // 제공된 Publishable API Key 적용
-const DEFAULT_KEY = 'sb_publishable_vvaBbJHvoOpcUwaUiPW0ww_vElHC7GW';
+const DEFAULT_KEY = 'sb_publishable_vvaBbJHvo0pcUwaUiPW0ww_vElHC7GW';
 
 // 저장소 키 (v5 사용 - 기존 캐시 무효화 및 새 기본값 적용)
 const STORAGE_KEY_URL = 'supabase_url_v5';
