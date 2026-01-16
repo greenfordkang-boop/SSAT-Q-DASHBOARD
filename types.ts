@@ -94,14 +94,16 @@ export interface CustomerMetric {
   actual: number; // 계산된 실적 PPM
 }
 
-export interface IncomingMetric {
+export interface SupplierMetric {
   id?: string;
   year: number;
+  supplier: string;
   month: number;
-  supplier: string; // 협력업체명
+  target: number; // 목표 PPM
   incomingQty: number; // 입고수량
-  defectQty: number; // 불량수량
-  ppm: number; // 계산된 PPM
+  inspectionQty: number; // 검사수량
+  defects: number; // 불량수량
+  actual: number; // 계산된 실적 PPM
 }
 
 export interface DashboardTab {
