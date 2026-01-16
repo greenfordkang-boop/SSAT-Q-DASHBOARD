@@ -26,6 +26,7 @@ const ProcessQuality: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasApiKey = !!import.meta.env.VITE_GEMINI_API_KEY;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,8 +42,8 @@ const ProcessQuality: React.FC = () => {
       // Get API key
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) {
-        alert('VITE_GEMINI_API_KEY 환경변수가 설정되지 않았습니다.\n.env 파일에 API 키를 추가해주세요.');
         setIsAnalyzing(false);
+        alert('⚠️ Gemini API 키가 설정되지 않았습니다.\n\n📋 설정 방법:\n\n1. Vercel 대시보드 접속\n2. Settings → Environment Variables\n3. 변수 추가:\n   - Name: VITE_GEMINI_API_KEY\n   - Value: 본인의 Gemini API 키\n   - Environments: Production, Preview, Development 체크\n4. 저장 후 Deployments에서 Redeploy 클릭\n\n🔑 API 키 발급: https://makersuite.google.com/app/apikey');
         return;
       }
 
@@ -140,12 +141,36 @@ ${fileContent}
         <h3 className="text-lg font-black text-slate-800 mb-2">
           {isAnalyzing ? 'AI 분석 진행 중...' : 'MES 주간 실적 데이터 업로드'}
         </h3>
-        <p className="text-slate-500 text-sm mb-6 max-w-md">
+        <p className="text-slate-500 text-sm mb-4 max-w-md">
           {isAnalyzing
             ? 'Gemini AI가 데이터를 분석하고 있습니다. 잠시만 기다려주세요...'
             : '엑셀(CSV) 자료를 업로드하면 자동으로 사출, 도장, 조립 공정의 품질 지표를 분석하여 그래프로 표시합니다.'
           }
         </p>
+
+        {/* API 키 상태 표시 */}
+        <div className={`mb-4 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${
+          hasApiKey
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-amber-50 text-amber-700 border border-amber-200'
+        }`}>
+          {hasApiKey ? (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Gemini AI 활성화됨 - 파일 분석 가능</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>API 키 미설정 - Vercel 환경 변수에서 VITE_GEMINI_API_KEY 추가 필요</span>
+            </>
+          )}
+        </div>
+
         {uploadedFileName && !isAnalyzing && (
           <div className="mb-4 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
