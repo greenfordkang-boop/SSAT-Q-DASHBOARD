@@ -78,11 +78,68 @@ CREATE INDEX IF NOT EXISTS idx_supplier_metrics_supplier ON supplier_metrics(sup
 CREATE INDEX IF NOT EXISTS idx_supplier_metrics_year ON supplier_metrics(year);
 CREATE INDEX IF NOT EXISTS idx_supplier_metrics_month ON supplier_metrics(month);
 
--- 4. RLS (Row Level Security) 비활성화 (개발 환경)
+-- 4. Outgoing Metrics 테이블 (출하 품질 실적)
+CREATE TABLE IF NOT EXISTS outgoing_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+  target NUMERIC NOT NULL DEFAULT 10,
+  inspection_qty INTEGER NOT NULL DEFAULT 0,
+  defects INTEGER NOT NULL DEFAULT 0,
+  actual NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- ⭐ 중요: 중복 방지를 위한 UNIQUE 제약조건
+  CONSTRAINT unique_outgoing_year_month UNIQUE (year, month)
+);
+
+-- Outgoing Metrics 인덱스
+CREATE INDEX IF NOT EXISTS idx_outgoing_metrics_year ON outgoing_metrics(year);
+CREATE INDEX IF NOT EXISTS idx_outgoing_metrics_month ON outgoing_metrics(month);
+
+-- 5. Quick Response Entries 테이블 (신속대응 추적표)
+CREATE TABLE IF NOT EXISTS quick_response_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  date DATE NOT NULL,
+  department TEXT NOT NULL,
+  machine_no TEXT,
+  defect_count INTEGER NOT NULL DEFAULT 0,
+  model TEXT NOT NULL,
+  defect_type TEXT,
+  process TEXT,
+  defect_content TEXT,
+  coating TEXT,
+  area TEXT,
+  material_code TEXT,
+  shielding TEXT,
+  action TEXT,
+  material_manager TEXT,
+  meeting_attendance TEXT,
+  status_24h TEXT NOT NULL DEFAULT 'N/A',
+  status_3d TEXT NOT NULL DEFAULT 'N/A',
+  status_14day TEXT NOT NULL DEFAULT 'N/A',
+  status_24d TEXT NOT NULL DEFAULT 'N/A',
+  status_25d TEXT NOT NULL DEFAULT 'N/A',
+  status_30d TEXT NOT NULL DEFAULT 'N/A',
+  customer_mm TEXT,
+  remarks TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Quick Response Entries 인덱스
+CREATE INDEX IF NOT EXISTS idx_quick_response_date ON quick_response_entries(date DESC);
+CREATE INDEX IF NOT EXISTS idx_quick_response_department ON quick_response_entries(department);
+CREATE INDEX IF NOT EXISTS idx_quick_response_model ON quick_response_entries(model);
+
+-- 6. RLS (Row Level Security) 비활성화 (개발 환경)
 -- 프로덕션에서는 RLS를 활성화하고 정책을 설정하세요
 ALTER TABLE ncr_entries DISABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_metrics DISABLE ROW LEVEL SECURITY;
 ALTER TABLE supplier_metrics DISABLE ROW LEVEL SECURITY;
+ALTER TABLE outgoing_metrics DISABLE ROW LEVEL SECURITY;
+ALTER TABLE quick_response_entries DISABLE ROW LEVEL SECURITY;
 
 -- 4. Updated_at 자동 업데이트 트리거 함수
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -111,6 +168,20 @@ CREATE TRIGGER update_customer_metrics_updated_at
 DROP TRIGGER IF EXISTS update_supplier_metrics_updated_at ON supplier_metrics;
 CREATE TRIGGER update_supplier_metrics_updated_at
   BEFORE UPDATE ON supplier_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Outgoing Metrics 업데이트 트리거
+DROP TRIGGER IF EXISTS update_outgoing_metrics_updated_at ON outgoing_metrics;
+CREATE TRIGGER update_outgoing_metrics_updated_at
+  BEFORE UPDATE ON outgoing_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Quick Response Entries 업데이트 트리거
+DROP TRIGGER IF EXISTS update_quick_response_entries_updated_at ON quick_response_entries;
+CREATE TRIGGER update_quick_response_entries_updated_at
+  BEFORE UPDATE ON quick_response_entries
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 

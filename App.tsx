@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -9,6 +9,7 @@ import CustomerQuality from './components/CustomerQuality';
 import IncomingQuality from './components/IncomingQuality';
 import ProcessQuality from './components/ProcessQuality';
 import OutgoingQuality from './components/OutgoingQuality';
+import QuickResponse from './components/QuickResponse';
 import { supabase, saveSupabaseConfig, resetSupabaseConfig } from './lib/supabaseClient';
 
 const TABS: DashboardTab[] = [
@@ -18,6 +19,7 @@ const TABS: DashboardTab[] = [
   { id: 'incoming', label: '수입검사' },
   { id: 'process', label: '공정품질' },
   { id: 'outgoing', label: '출하품질' },
+  { id: 'quickresponse', label: '신속대응' },
 ];
 
 const App: React.FC = () => {
@@ -28,6 +30,8 @@ const App: React.FC = () => {
   const [ncrData, setNcrData] = useState<NCREntry[]>([]);
   const [customerMetrics, setCustomerMetrics] = useState<CustomerMetric[]>([]);
   const [supplierMetrics, setSupplierMetrics] = useState<SupplierMetric[]>([]);
+  const [outgoingMetrics, setOutgoingMetrics] = useState<OutgoingMetric[]>([]);
+  const [quickResponseData, setQuickResponseData] = useState<QuickResponseEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -223,6 +227,65 @@ const App: React.FC = () => {
       }));
       setSupplierMetrics(typedSupplierMetrics);
 
+      // 4. 출하 품질 실적 가져오기
+      const { data: oMetrics, error: oError } = await supabase
+        .from('outgoing_metrics')
+        .select('*')
+        .order('month', { ascending: true });
+
+      if (oError) {
+         console.warn("Outgoing Metrics Fetch Warning:", oError.message);
+      }
+
+      const typedOutgoingMetrics = (oMetrics || []).map((m: any) => ({
+        id: m.id,
+        year: Number(m.year),
+        month: Number(m.month),
+        target: Number(m.target),
+        inspectionQty: Number(m.inspection_qty || 0),
+        defects: Number(m.defects || 0),
+        actual: Number(m.actual || 0)
+      }));
+      setOutgoingMetrics(typedOutgoingMetrics);
+
+      // 5. 신속대응 추적 데이터 가져오기
+      const { data: qrData, error: qrError } = await supabase
+        .from('quick_response_entries')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (qrError) {
+         console.warn("Quick Response Fetch Warning:", qrError.message);
+      }
+
+      const typedQuickResponseData = (qrData || []).map((q: any) => ({
+        id: q.id,
+        date: q.date,
+        department: q.department,
+        machineNo: q.machine_no || '',
+        defectCount: Number(q.defect_count || 0),
+        model: q.model,
+        defectType: q.defect_type || '',
+        process: q.process || '',
+        defectContent: q.defect_content || '',
+        coating: q.coating || '',
+        area: q.area || '',
+        materialCode: q.material_code || '',
+        shielding: q.shielding || '',
+        action: q.action || '',
+        materialManager: q.material_manager || '',
+        meetingAttendance: q.meeting_attendance || '',
+        status24H: q.status_24h || 'N/A',
+        status3D: q.status_3d || 'N/A',
+        status14DAY: q.status_14day || 'N/A',
+        status24D: q.status_24d || 'N/A',
+        status25D: q.status_25d || 'N/A',
+        status30D: q.status_30d || 'N/A',
+        customerMM: q.customer_mm || '',
+        remarks: q.remarks || ''
+      }));
+      setQuickResponseData(typedQuickResponseData);
+
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
       handleError(e, "데이터 초기화");
@@ -315,6 +378,52 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveOutgoingMetrics = async (payload: OutgoingMetric | OutgoingMetric[]) => {
+    try {
+      const metricsArray = Array.isArray(payload) ? payload : [payload];
+
+      // 기존 데이터 조회하여 id 매핑
+      const dbPayload = await Promise.all(metricsArray.map(async m => {
+        // 기존 레코드 검색 (maybeSingle: 없으면 null 반환, 에러 안남)
+        const { data: existing } = await supabase
+          .from('outgoing_metrics')
+          .select('id')
+          .eq('year', m.year)
+          .eq('month', m.month)
+          .maybeSingle();
+
+        return {
+          ...(existing?.id ? { id: existing.id } : {}),
+          year: m.year,
+          month: m.month,
+          target: m.target,
+          inspection_qty: m.inspectionQty,
+          defects: m.defects,
+          actual: m.actual
+        };
+      }));
+
+      console.log("출하품질 지표 전송 데이터:", dbPayload);
+
+      const { data, error } = await supabase
+        .from('outgoing_metrics')
+        .upsert(dbPayload)
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      console.log("출하품질 지표 저장 성공:", data);
+      await fetchAllData();
+      return true;
+
+    } catch (e: any) {
+      handleError(e, "출하품질 지표 저장");
+      return false;
+    }
+  };
+
   const handleSaveNCR = async (entry: NCREntry) => {
     try {
       const dbPayload = {
@@ -372,6 +481,59 @@ const App: React.FC = () => {
       fetchAllData();
     } catch (e: any) {
       handleError(e, "삭제");
+    }
+  };
+
+  const handleSaveQuickResponse = async (entry: QuickResponseEntry) => {
+    try {
+      const dbPayload = {
+        ...(entry.id ? { id: entry.id } : {}),
+        date: entry.date,
+        department: entry.department,
+        machine_no: entry.machineNo,
+        defect_count: entry.defectCount,
+        model: entry.model,
+        defect_type: entry.defectType,
+        process: entry.process,
+        defect_content: entry.defectContent,
+        coating: entry.coating,
+        area: entry.area,
+        material_code: entry.materialCode,
+        shielding: entry.shielding,
+        action: entry.action,
+        material_manager: entry.materialManager,
+        meeting_attendance: entry.meetingAttendance,
+        status_24h: entry.status24H,
+        status_3d: entry.status3D,
+        status_14day: entry.status14DAY,
+        status_24d: entry.status24D,
+        status_25d: entry.status25D,
+        status_30d: entry.status30D,
+        customer_mm: entry.customerMM,
+        remarks: entry.remarks
+      };
+
+      const { error } = await supabase.from('quick_response_entries').upsert(dbPayload);
+
+      if (error) {
+        throw error;
+      }
+
+      await fetchAllData();
+      alert('신속대응 데이터가 저장되었습니다.');
+    } catch (e: any) {
+      handleError(e, "신속대응 저장");
+    }
+  };
+
+  const handleDeleteQuickResponse = async (id: string) => {
+    if (!id) return;
+    try {
+      const { error } = await supabase.from('quick_response_entries').delete().eq('id', id);
+      if (error) throw error;
+      await fetchAllData();
+    } catch (e: any) {
+      handleError(e, "신속대응 삭제");
     }
   };
 
@@ -489,7 +651,8 @@ const App: React.FC = () => {
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
             {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
             {activeTab === 'process' && <ProcessQuality />}
-            {activeTab === 'outgoing' && <OutgoingQuality />}
+            {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
+            {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
           </div>
         )}
       </main>
