@@ -272,14 +272,14 @@ const App: React.FC = () => {
 
       // 기존 데이터 조회하여 id 매핑
       const dbPayload = await Promise.all(metricsArray.map(async m => {
-        // 기존 레코드 검색
+        // 기존 레코드 검색 (maybeSingle: 없으면 null 반환, 에러 안남)
         const { data: existing } = await supabase
           .from('supplier_metrics')
           .select('id')
           .eq('supplier', m.supplier)
           .eq('year', m.year)
           .eq('month', m.month)
-          .single();
+          .maybeSingle();
 
         return {
           ...(existing?.id ? { id: existing.id } : {}),
