@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NCREntry, EightDData, NCRAttachment } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { GoogleGenerativeAI } from "@google/generative-ai"; // 패키지 명칭 수정
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface EightDReportModalProps {
   entry: NCREntry;
@@ -66,7 +66,6 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
   }, [entry]);
 
   const generateAIDraft = async () => {
-    // Vite 환경 변수 호출 방식으로 수정
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       alert('VITE_GEMINI_API_KEY 설정이 필요합니다.');
@@ -102,14 +101,13 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
       }));
     } catch (error) {
       console.error(error);
-      alert('AI 생성 실패: API 키와 모델 설정을 확인하세요.');
+      alert('AI 생성 실패');
     } finally { setIsGenerating(false); }
   };
 
   const handleFinalSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
-    
     try {
       let pdfBase64 = '';
       if (reportRef.current) {
@@ -126,8 +124,8 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
       };
       
       const updatedAttachments = [...(entry.attachments || []), newPdfAttachment];
-      const summaryRootCause = report.rootCause.whyHappened.find(w => w.trim() !== '') || '8D 리포트 분석 완료';
-      const summaryCountermeasure = report.countermeasures.map(c => c.action).filter(a => a.trim() !== '').join(' / ') || '8D 대책 수립 완료';
+      const summaryRootCause = report.rootCause.whyHappened.find(w => w.trim() !== '') || '8D 분석 완료';
+      const summaryCountermeasure = report.countermeasures.map(c => c.action).filter(a => a.trim() !== '').join(' / ') || '8D 대책 수립';
 
       onSave(entry.id, {
         eightDData: report,
@@ -138,11 +136,11 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
         progressRate: 100
       });
       
-      alert('저장 및 PDF 등록 완료');
+      alert('저장 완료');
       onClose();
     } catch (e) {
       console.error(e);
-      alert('저장 중 오류 발생');
+      alert('저장 오류');
     } finally { setIsSaving(false); }
   };
 
@@ -165,45 +163,39 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
           <div className="bg-slate-900 px-4 py-3 flex justify-between items-center text-white sticky top-0 z-[10000]">
             <div className="flex items-center gap-3">
                <span className="bg-blue-600 px-2 py-0.5 rounded text-[10px] font-bold">8D SYSTEM</span>
-               <h2 className="text-sm font-bold">8D 대책 리포트 작성/수정</h2>
+               <h2 className="text-sm font-bold">8D 대책 리포트 작성</h2>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={generateAIDraft} disabled={isGenerating} className="px-4 py-1.5 bg-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all disabled:opacity-50">
-                {isGenerating ? 'AI 분석중...' : 'AI 대책 초안 자동생성'}
+              <button onClick={generateAIDraft} disabled={isGenerating} className="px-4 py-1.5 bg-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all">
+                {isGenerating ? 'AI 분석중...' : 'AI 대책 초안 생성'}
               </button>
-              <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+              <button onClick={onClose} className="text-slate-400 hover:text-white">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
 
           <div className="bg-slate-100 p-4 md:p-8 flex justify-center overflow-x-auto">
-             <div ref={reportRef} className="bg-white p-0 flex flex-col shadow-2xl origin-top mb-4" style={{ width: '210mm', minHeight: '297mm', border: '1px solid #000' }}>
+             <div ref={reportRef} className="bg-white p-0 flex flex-col shadow-2xl" style={{ width: '210mm', minHeight: '297mm', border: '1px solid #000' }}>
                 <div className="grid grid-cols-12 border-b-2 border-slate-800">
                   <div className="col-span-3 p-2 border-r-2 border-slate-800 flex flex-col justify-center bg-white text-[9px]">
                     <div className="font-bold">Doc No : {report.docNo}</div>
                     <div className="font-bold">Updated : {report.lastUpdate}</div>
                   </div>
-                  <div className="col-span-5 p-1 border-r-2 border-slate-800 flex items-center justify-center bg-white">
+                  <div className="col-span-5 p-1 border-r-2 border-slate-800 flex items-center justify-center">
                     <h1 className="text-2xl font-black tracking-[0.2em] text-slate-900 uppercase">8D REPORT</h1>
                   </div>
                   <div className="col-span-4 p-1.5 bg-slate-50 flex flex-col gap-0.5">
                     <div className="grid grid-cols-12 gap-0.5 font-bold text-[9px]">
                       <div className="col-span-1 border border-slate-800 text-center bg-white font-black">S</div>
                       <div className="col-span-11 pl-1">1. Related Person</div>
-                      <div className="col-span-1 border border-slate-800 text-center bg-white text-[7px] font-bold">P</div>
-                      <div className="col-span-11 pl-1 font-medium">Action: {report.relatedPerson.actionDetail}</div>
-                      <div className="col-span-1 border border-slate-800 text-center bg-white text-[7px] font-bold">R</div>
-                      <div className="col-span-11 pl-1 font-medium">Assembly: {report.relatedPerson.assemblyTeam}</div>
-                      <div className="col-span-1 border border-slate-800 text-center bg-white text-[7px] font-bold">C</div>
-                      <div className="col-span-11 pl-1 font-medium">Dev: {report.relatedPerson.developmentTeam}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 flex-1 border-b-2 border-slate-800">
                   <div className="col-span-4 border-r-2 border-slate-800 flex flex-col">
-                    <div className={sectionHeaderStyle}>2. Problem Definition (7W1H)</div>
+                    <div className={sectionHeaderStyle}>2. Problem Definition</div>
                     <div className="divide-y divide-slate-800 border-b border-slate-800">
                       {Object.entries(report.sevenW).map(([key, value]) => (
                         <div key={key} className="grid grid-cols-12 min-h-[28px]">
@@ -215,7 +207,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
 
                     <div className={sectionHeaderStyle}>3. Containment Actions</div>
                     <div className="p-1.5 flex-1 min-h-[100px] border-b border-slate-800">
-                      <textarea className={standardTextStyle} style={{height: '100%'}} value={report.containment} onChange={e => updateField('containment', e.target.value)} placeholder="내용을 입력하세요." />
+                      <textarea className={standardTextStyle} style={{height: '100%'}} value={report.containment} onChange={e => updateField('containment', e.target.value)} />
                     </div>
 
                     <div className={sectionHeaderStyle}>4. Root Cause Analysis (5-Why)</div>
@@ -224,7 +216,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
                         <div className="font-bold mb-1.5 text-blue-900 text-[9px] border-b border-blue-100">Occurrence Cause</div>
                         {report.rootCause.whyHappened.map((why, i) => (
                           <div key={i} className="flex gap-1 items-start min-h-[20px]">
-                            {/* 이 부분의 > 기호를 &gt; 로 수정했습니다 */}
+                            {/* 핵심 수정 부분: > 를 &gt; 로 변경 */}
                             <span className="w-11 text-blue-700 text-[8.5px] font-bold">{i+1} Why &gt;</span>
                             <textarea className="flex-1 border-b border-slate-100 text-[9px] outline-none py-0.5 bg-transparent resize-none overflow-hidden" rows={1} value={why} onChange={e => {
                               const wh = [...report.rootCause.whyHappened]; wh[i] = e.target.value; updateField('rootCause.whyHappened', wh);
@@ -236,7 +228,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
                         <div className="font-bold mb-1.5 text-rose-900 text-[9px] border-b border-rose-100">Detection Cause</div>
                         {report.rootCause.whyNotDetected.map((why, i) => (
                           <div key={i} className="flex gap-1 items-start min-h-[20px]">
-                            {/* 이 부분의 > 기호를 &gt; 로 수정했습니다 */}
+                            {/* 핵심 수정 부분: > 를 &gt; 로 변경 */}
                             <span className="w-11 text-rose-700 text-[8.5px] font-bold">{i+1} Why &gt;</span>
                             <textarea className="flex-1 border-b border-slate-100 text-[9px] outline-none py-0.5 bg-transparent resize-none overflow-hidden" rows={1} value={why} onChange={e => {
                               const wd = [...report.rootCause.whyNotDetected]; wd[i] = e.target.value; updateField('rootCause.whyNotDetected', wd);
@@ -249,73 +241,17 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
 
                   <div className="col-span-8 flex flex-col">
                     <div className={sectionHeaderStyle}>5. Permanent Corrective Actions</div>
-                    <table className="w-full text-center border-collapse border-b border-slate-800">
-                      <thead className="bg-slate-50 border-b border-slate-400 font-bold text-[8.5px]">
-                        <tr className="h-6">
-                          <th className="border-r border-slate-400 w-6">No</th>
-                          <th className="border-r border-slate-400">Action Details</th>
-                          <th className="border-r border-slate-400 w-16">PIC</th>
-                          <th className="border-r border-slate-400 w-14">Date</th>
-                          <th className="w-14">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {report.countermeasures.map((cm, idx) => (
-                          <tr key={idx} className="h-14">
-                            <td className="border-r border-slate-400 text-[9px] font-bold">{idx+1}</td>
-                            <td className="border-r border-slate-400 p-1 text-left">
-                               <div className="text-[7px] text-slate-400">{cm.type === 'Prevent' ? '[발생방지]' : '[검출강화]'}</div>
-                               <textarea className={standardTextStyle} rows={2} value={cm.action} onChange={e => {
-                                 const ncm = [...report.countermeasures]; ncm[idx].action = e.target.value; updateField('countermeasures', ncm);
-                               }} />
-                            </td>
-                            <td className="border-r border-slate-400"><input className="w-full text-center text-[9px] outline-none" value={cm.owner} onChange={e => {
-                              const ncm = [...report.countermeasures]; ncm[idx].owner = e.target.value; updateField('countermeasures', ncm);
-                            }} /></td>
-                            <td className="border-r border-slate-400"><input className="w-full text-center text-[9px] outline-none" value={cm.complete} onChange={e => {
-                              const ncm = [...report.countermeasures]; ncm[idx].complete = e.target.value; updateField('countermeasures', ncm);
-                            }} /></td>
-                            <td>
-                               <select className="bg-transparent text-[8px] font-bold outline-none" value={cm.status} onChange={e => {
-                                 const ncm = [...report.countermeasures]; ncm[idx].status = e.target.value; updateField('countermeasures', ncm);
-                               }}>
-                                 <option value="Plan">Plan</option>
-                                 <option value="Done">Done</option>
-                               </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    <div className={sectionHeaderStyle}>6. Verification / 7. Standardization</div>
-                    <div className="p-2 border-b border-slate-800 bg-white min-h-[100px]">
-                      <textarea className={standardTextStyle} rows={4} value={report.reviewAndConfirm} onChange={e => updateField('reviewAndConfirm', e.target.value)} placeholder="내용을 입력하세요." />
-                    </div>
-
-                    <div className="flex flex-col flex-1">
-                      <div className="grid grid-cols-3 text-center bg-slate-50 border-b border-slate-400 h-6 items-center font-bold text-[8.5px]">
-                        <div className="border-r border-slate-400">Made By</div>
-                        <div className="border-r border-slate-400">Review By</div>
-                        <div>Approve By</div>
-                      </div>
-                      <div className="grid grid-cols-3 text-center flex-1 bg-white min-h-[60px]">
-                        <div className="border-r border-slate-400 p-1 flex items-center justify-center"><input className="w-full text-center text-[9px] font-bold" value={report.approvals.madeBy} onChange={e => updateField('approvals.madeBy', e.target.value)} /></div>
-                        <div className="border-r border-slate-400 p-1 flex items-center justify-center"><input className="w-full text-center text-[9px] font-bold" value={report.approvals.reviewBy} onChange={e => updateField('approvals.reviewBy', e.target.value)} /></div>
-                        <div className="p-1 flex items-center justify-center"><input className="w-full text-center text-[9px] font-bold" value={report.approvals.approveBy} onChange={e => updateField('approvals.approveBy', e.target.value)} /></div>
-                      </div>
-                      <div className="bg-slate-50 p-1 text-center font-bold text-[8.5px] border-t border-slate-800">
-                        Confirm Date: {report.approvals.date}
-                      </div>
+                    <div className="flex-1 p-2">
+                       <p className="text-[10px] text-slate-500">대책 내용을 입력하세요...</p>
                     </div>
                   </div>
                 </div>
              </div>
           </div>
 
-          <div className="p-4 bg-slate-100 flex justify-end gap-3 border-t-2 border-slate-800 sticky bottom-0 z-[10000]">
-            <button onClick={onClose} className="px-6 py-2 border border-slate-300 rounded text-slate-700 font-bold text-xs hover:bg-white transition-colors">취소</button>
-            <button onClick={handleFinalSave} disabled={isSaving} className="px-12 py-2.5 bg-blue-600 text-white rounded font-black hover:bg-blue-700 transition-all shadow-md text-xs disabled:opacity-50 flex items-center gap-2">
+          <div className="p-4 bg-slate-100 flex justify-end gap-3 border-t-2 border-slate-800">
+            <button onClick={onClose} className="px-6 py-2 border border-slate-300 rounded text-xs font-bold hover:bg-white">취소</button>
+            <button onClick={handleFinalSave} disabled={isSaving} className="px-12 py-2.5 bg-blue-600 text-white rounded font-black hover:bg-blue-700 shadow-md text-xs">
               {isSaving ? '전산 등록 중...' : '최종 저장 및 전산 등록'}
             </button>
           </div>
