@@ -285,7 +285,7 @@ const App: React.FC = () => {
 
       const { data, error } = await supabase
         .from('supplier_metrics')
-        .upsert(dbPayload, { onConflict: 'supplier,year,month' })
+        .upsert(dbPayload)
         .select();
 
       if (error) {

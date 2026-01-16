@@ -82,6 +82,7 @@ const IncomingQuality: React.FC<IncomingQualityProps> = ({ metrics, onSaveMetric
       return;
     }
 
+    console.log("협력업체 실적 입력 시도:", entryForm);
     setIsSaving(true);
     const success = await onSaveMetric(entryForm);
     setIsSaving(false);
@@ -89,12 +90,15 @@ const IncomingQuality: React.FC<IncomingQualityProps> = ({ metrics, onSaveMetric
     if (success) {
         setShowEntryModal(false);
         alert('협력업체 실적이 저장되었습니다.');
+    } else {
+        alert('저장에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
   const handleAnnualTargetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (window.confirm(`${targetYear}년 모든 협력업체의 모든 달 목표를 ${annualTarget} PPM으로 변경하시겠습니까?`)) {
+      console.log(`연간 목표 설정 시도 - 년도: ${targetYear}, 목표: ${annualTarget} PPM`);
       setIsSaving(true);
       const batchPayload: SupplierMetric[] = [];
 
@@ -119,12 +123,15 @@ const IncomingQuality: React.FC<IncomingQualityProps> = ({ metrics, onSaveMetric
         });
       });
 
+      console.log(`일괄 저장 데이터 건수: ${batchPayload.length}개`);
       const success = await onSaveMetric(batchPayload);
       setIsSaving(false);
 
       if (success) {
         setShowTargetModal(false);
         alert(`${targetYear}년 목표가 전산에 일괄 등록되었습니다.`);
+      } else {
+        alert('목표 설정 저장에 실패했습니다. 다시 시도해주세요.');
       }
     }
   };
