@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [ncrData, setNcrData] = useState<NCREntry[]>([]);
   const [customerMetrics, setCustomerMetrics] = useState<CustomerMetric[]>([]);
   const [supplierMetrics, setSupplierMetrics] = useState<SupplierMetric[]>([]);
+  const [outgoingMetrics, setOutgoingMetrics] = useState<OutgoingMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -223,6 +224,27 @@ const App: React.FC = () => {
       }));
       setSupplierMetrics(typedSupplierMetrics);
 
+      // 4. 출하 품질 실적 가져오기
+      const { data: oMetrics, error: oError } = await supabase
+        .from('outgoing_metrics')
+        .select('*')
+        .order('month', { ascending: true });
+
+      if (oError) {
+         console.warn("Outgoing Metrics Fetch Warning:", oError.message);
+      }
+
+      const typedOutgoingMetrics = (oMetrics || []).map((m: any) => ({
+        id: m.id,
+        year: Number(m.year),
+        month: Number(m.month),
+        target: Number(m.target),
+        inspectionQty: Number(m.inspection_qty || 0),
+        defects: Number(m.defects || 0),
+        actual: Number(m.actual || 0)
+      }));
+      setOutgoingMetrics(typedOutgoingMetrics);
+
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
       handleError(e, "데이터 초기화");
@@ -311,6 +333,52 @@ const App: React.FC = () => {
 
     } catch (e: any) {
       handleError(e, "협력업체 지표 저장");
+      return false;
+    }
+  };
+
+  const handleSaveOutgoingMetrics = async (payload: OutgoingMetric | OutgoingMetric[]) => {
+    try {
+      const metricsArray = Array.isArray(payload) ? payload : [payload];
+
+      // 기존 데이터 조회하여 id 매핑
+      const dbPayload = await Promise.all(metricsArray.map(async m => {
+        // 기존 레코드 검색 (maybeSingle: 없으면 null 반환, 에러 안남)
+        const { data: existing } = await supabase
+          .from('outgoing_metrics')
+          .select('id')
+          .eq('year', m.year)
+          .eq('month', m.month)
+          .maybeSingle();
+
+        return {
+          ...(existing?.id ? { id: existing.id } : {}),
+          year: m.year,
+          month: m.month,
+          target: m.target,
+          inspection_qty: m.inspectionQty,
+          defects: m.defects,
+          actual: m.actual
+        };
+      }));
+
+      console.log("출하품질 지표 전송 데이터:", dbPayload);
+
+      const { data, error } = await supabase
+        .from('outgoing_metrics')
+        .upsert(dbPayload)
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      console.log("출하품질 지표 저장 성공:", data);
+      await fetchAllData();
+      return true;
+
+    } catch (e: any) {
+      handleError(e, "출하품질 지표 저장");
       return false;
     }
   };
@@ -489,7 +557,7 @@ const App: React.FC = () => {
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
             {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
             {activeTab === 'process' && <ProcessQuality />}
-            {activeTab === 'outgoing' && <OutgoingQuality />}
+            {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
           </div>
         )}
       </main>
