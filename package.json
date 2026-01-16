@@ -1,12 +1,13 @@
 
 {
-  "name": "ncr-management-system",
+  "name": "ssat-q-dashboard",
   "version": "1.0.0",
   "description": "25년 부적합 LIST 관리 시스템",
-  "main": "index.tsx",
+  "type": "module",
   "scripts": {
-    "start": "serve -s -l 8080 .",
-    "build": "echo 'No build step required for esm.sh version'"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.2.3",
@@ -14,7 +15,16 @@
     "recharts": "^3.6.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
+    "lucide-react": "latest",
+    "@supabase/supabase-js": "latest",
     "serve": "^14.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
   },
   "keywords": [
     "QMS",
