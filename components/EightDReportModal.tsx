@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { NCREntry, EightDData, NCRAttachment } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai"; // 패키지 명칭 수정
 
 interface EightDReportModalProps {
   entry: NCREntry;
@@ -67,38 +66,25 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
   }, [entry]);
 
   const generateAIDraft = async () => {
-    if (!process.env.API_KEY) {
-      alert('API 키가 설정되지 않았습니다.');
+    // Vite 환경 변수 호출 방식으로 수정
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      alert('VITE_GEMINI_API_KEY 설정이 필요합니다.');
       return;
     }
     setIsGenerating(true);
     try {
-      // Use gemini-3-pro-preview for complex reasoning task (8D quality report generation)
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `품질 관리 전문가로서 다음 NCR에 대한 8D 리포트 초안을 작성하십시오.
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
+      const prompt = `품질 관리 전문가로서 다음 NCR에 대한 8D 리포트 초안을 JSON 형식으로 작성하십시오.
       고객: ${entry.customer}, 품명: ${entry.partName}, 불량: ${entry.defectContent}`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              sevenW: { type: Type.OBJECT, properties: { who: {type: Type.STRING}, what: {type: Type.STRING}, when: {type: Type.STRING}, where: {type: Type.STRING}, why: {type: Type.STRING}, howMany: {type: Type.STRING}, howOften: {type: Type.STRING} }, required: ["who","what","when","where","why","howMany","howOften"] },
-              containment: { type: Type.STRING },
-              rootCause: { type: Type.OBJECT, properties: { whyHappened: {type: Type.ARRAY, items: {type: Type.STRING}}, whyNotDetected: {type: Type.ARRAY, items: {type: Type.STRING}} }, required: ["whyHappened","whyNotDetected"] },
-              countermeasures: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { action: {type: Type.STRING}, type: {type: Type.STRING, enum: ["Prevent", "Detection"]} } } },
-              reviewAndConfirm: { type: Type.STRING }
-            },
-            required: ["sevenW", "containment", "rootCause", "countermeasures", "reviewAndConfirm"]
-          }
-        }
-      });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      const aiResult = JSON.parse(text.replace(/```json|```/g, ''));
 
-      // Extract text from GenerateContentResponse property directly
-      const aiResult = JSON.parse(response.text || '{}');
       setReport(prev => ({
         ...prev,
         sevenW: { ...prev.sevenW, ...aiResult.sevenW },
@@ -107,7 +93,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
           whyHappened: (aiResult.rootCause?.whyHappened || []).concat(['','','','','']).slice(0, 5),
           whyNotDetected: (aiResult.rootCause?.whyNotDetected || []).concat(['','','','','']).slice(0, 5),
         },
-        countermeasures: prev.countermeasures.map((cm, i) => ({
+        countermeasures: prev.countermeasures.map((cm) => ({
           ...cm,
           action: aiResult.countermeasures?.find((a:any) => a.type === cm.type)?.action || cm.action,
           complete: new Date().toISOString().split('T')[0]
@@ -116,7 +102,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
       }));
     } catch (error) {
       console.error(error);
-      alert('AI 생성 실패');
+      alert('AI 생성 실패: API 키와 모델 설정을 확인하세요.');
     } finally { setIsGenerating(false); }
   };
 
@@ -125,7 +111,6 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
     setIsSaving(true);
     
     try {
-      // 1. PDF 캡처 생성
       let pdfBase64 = '';
       if (reportRef.current) {
         const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, logging: false });
@@ -134,21 +119,16 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
         pdfBase64 = pdf.output('datauristring').split(',')[1];
       }
 
-      // 2. 새로운 첨부파일 객체 생성
       const newPdfAttachment: NCRAttachment = {
         name: `8D_AutoReport_${report.docNo}_${new Date().toLocaleDateString()}.pdf`,
         data: pdfBase64,
         type: 'application/pdf'
       };
       
-      // 3. 기존 첨부파일 목록에 추가
       const updatedAttachments = [...(entry.attachments || []), newPdfAttachment];
-
-      // 4. 리스트 동기화용 요약 정보 (첫 번째 원인과 대책 전체 합산)
       const summaryRootCause = report.rootCause.whyHappened.find(w => w.trim() !== '') || '8D 리포트 분석 완료';
       const summaryCountermeasure = report.countermeasures.map(c => c.action).filter(a => a.trim() !== '').join(' / ') || '8D 대책 수립 완료';
 
-      // 5. 부모 컴포넌트(App.tsx)의 handleSave8D 호출
       onSave(entry.id, {
         eightDData: report,
         rootCause: summaryRootCause,
@@ -158,11 +138,11 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
         progressRate: 100
       });
       
-      alert('8D 리포트가 저장되었으며, 리스트 동기화 및 PDF 파일 자동 등록이 완료되었습니다.');
+      alert('저장 및 PDF 등록 완료');
       onClose();
     } catch (e) {
       console.error(e);
-      alert('저장 중 오류가 발생했습니다.');
+      alert('저장 중 오류 발생');
     } finally { setIsSaving(false); }
   };
 
@@ -235,16 +215,17 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
 
                     <div className={sectionHeaderStyle}>3. Containment Actions</div>
                     <div className="p-1.5 flex-1 min-h-[100px] border-b border-slate-800">
-                      <textarea className={standardTextStyle} style={{height: '100%'}} value={report.containment} onChange={e => updateField('containment', e.target.value)} placeholder="봉쇄 및 선별 조치 내용을 입력하세요." />
+                      <textarea className={standardTextStyle} style={{height: '100%'}} value={report.containment} onChange={e => updateField('containment', e.target.value)} placeholder="내용을 입력하세요." />
                     </div>
 
                     <div className={sectionHeaderStyle}>4. Root Cause Analysis (5-Why)</div>
                     <div className="p-1.5 space-y-4 flex-1 bg-white">
                       <div>
-                        <div className="font-bold mb-1.5 text-blue-900 text-[9px] border-b border-blue-100">Occurrence Cause (왜 발생했는가?)</div>
+                        <div className="font-bold mb-1.5 text-blue-900 text-[9px] border-b border-blue-100">Occurrence Cause</div>
                         {report.rootCause.whyHappened.map((why, i) => (
                           <div key={i} className="flex gap-1 items-start min-h-[20px]">
-                            <span className="w-11 text-blue-700 text-[8.5px] font-bold">{i+1} Why ></span>
+                            {/* 이 부분의 > 기호를 &gt; 로 수정했습니다 */}
+                            <span className="w-11 text-blue-700 text-[8.5px] font-bold">{i+1} Why &gt;</span>
                             <textarea className="flex-1 border-b border-slate-100 text-[9px] outline-none py-0.5 bg-transparent resize-none overflow-hidden" rows={1} value={why} onChange={e => {
                               const wh = [...report.rootCause.whyHappened]; wh[i] = e.target.value; updateField('rootCause.whyHappened', wh);
                             }} />
@@ -252,10 +233,11 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
                         ))}
                       </div>
                       <div>
-                        <div className="font-bold mb-1.5 text-rose-900 text-[9px] border-b border-rose-100">Detection Cause (왜 유출되었는가?)</div>
+                        <div className="font-bold mb-1.5 text-rose-900 text-[9px] border-b border-rose-100">Detection Cause</div>
                         {report.rootCause.whyNotDetected.map((why, i) => (
                           <div key={i} className="flex gap-1 items-start min-h-[20px]">
-                            <span className="w-11 text-rose-700 text-[8.5px] font-bold">{i+1} Why ></span>
+                            {/* 이 부분의 > 기호를 &gt; 로 수정했습니다 */}
+                            <span className="w-11 text-rose-700 text-[8.5px] font-bold">{i+1} Why &gt;</span>
                             <textarea className="flex-1 border-b border-slate-100 text-[9px] outline-none py-0.5 bg-transparent resize-none overflow-hidden" rows={1} value={why} onChange={e => {
                               const wd = [...report.rootCause.whyNotDetected]; wd[i] = e.target.value; updateField('rootCause.whyNotDetected', wd);
                             }} />
@@ -308,7 +290,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
 
                     <div className={sectionHeaderStyle}>6. Verification / 7. Standardization</div>
                     <div className="p-2 border-b border-slate-800 bg-white min-h-[100px]">
-                      <textarea className={standardTextStyle} rows={4} value={report.reviewAndConfirm} onChange={e => updateField('reviewAndConfirm', e.target.value)} placeholder="표준화 및 최종 검증 내용을 입력하세요." />
+                      <textarea className={standardTextStyle} rows={4} value={report.reviewAndConfirm} onChange={e => updateField('reviewAndConfirm', e.target.value)} placeholder="내용을 입력하세요." />
                     </div>
 
                     <div className="flex flex-col flex-1">
@@ -334,12 +316,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
           <div className="p-4 bg-slate-100 flex justify-end gap-3 border-t-2 border-slate-800 sticky bottom-0 z-[10000]">
             <button onClick={onClose} className="px-6 py-2 border border-slate-300 rounded text-slate-700 font-bold text-xs hover:bg-white transition-colors">취소</button>
             <button onClick={handleFinalSave} disabled={isSaving} className="px-12 py-2.5 bg-blue-600 text-white rounded font-black hover:bg-blue-700 transition-all shadow-md text-xs disabled:opacity-50 flex items-center gap-2">
-              {isSaving ? (
-                <>
-                  <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  전산 동기화 및 PDF 생성 중...
-                </>
-              ) : '최종 저장 및 전산 등록'}
+              {isSaving ? '전산 등록 중...' : '최종 저장 및 전산 등록'}
             </button>
           </div>
         </div>
