@@ -1,8 +1,6 @@
-
 {
   "name": "ssat-q-dashboard",
-  "version": "1.0.0",
-  "description": "25년 부적합 LIST 관리 시스템",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,27 +8,22 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "recharts": "^3.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
-    "lucide-react": "latest",
-    "@supabase/supabase-js": "latest",
-    "serve": "^14.2.4"
+    "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.7.3",
-    "vite": "^6.0.7"
-  },
-  "keywords": [
-    "QMS",
-    "NCR",
-    "8D-Report"
-  ],
-  "author": "Quality Assurance Team",
-  "license": "ISC"
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
 }
