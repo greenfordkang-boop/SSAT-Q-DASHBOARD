@@ -476,7 +476,7 @@ const App: React.FC = () => {
           <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>
         ) : (
           <div className="space-y-6">
-            {activeTab === 'overall' && <Dashboard data={ncrData} />}
+            {activeTab === 'overall' && <Dashboard ncrData={ncrData} customerMetrics={customerMetrics} supplierMetrics={supplierMetrics} />}
             {activeTab === 'ncr' && (
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
