@@ -76,3 +76,12 @@ export const CUSTOMER_LIST = [
   '하이게인 안테나',
   '한빛 T&I'
 ];
+
+export const SUPPLIER_LIST = [
+  '신소재산업',
+  '송현테크',
+  '성진로지스',
+  '주은테크',
+  '동아전기',
+  '기타'
+];

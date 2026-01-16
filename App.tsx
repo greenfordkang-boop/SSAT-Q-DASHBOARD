@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, IncomingMetric } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -9,7 +9,13 @@ import CustomerQuality from './components/CustomerQuality';
 import IncomingQuality from './components/IncomingQuality';
 import ProcessQuality from './components/ProcessQuality';
 import OutgoingQuality from './components/OutgoingQuality';
-import { supabase, saveSupabaseConfig, resetSupabaseConfig } from './lib/supabaseClient';
+import { 
+  supabase, 
+  saveSupabaseConfig, 
+  resetSupabaseConfig,
+  STORAGE_KEY_URL, 
+  STORAGE_KEY_KEY 
+} from './lib/supabaseClient';
 
 const TABS: DashboardTab[] = [
   { id: 'overall', label: '종합현황' },
@@ -27,6 +33,7 @@ const App: React.FC = () => {
   
   const [ncrData, setNcrData] = useState<NCREntry[]>([]);
   const [customerMetrics, setCustomerMetrics] = useState<CustomerMetric[]>([]);
+  const [incomingMetrics, setIncomingMetrics] = useState<IncomingMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -40,9 +47,10 @@ const App: React.FC = () => {
   const [configKey, setConfigKey] = useState('');
 
   useEffect(() => {
-    // 로컬 스토리지에서 현재 설정값을 가져와 모달 초기값으로 설정
-    const storedUrl = localStorage.getItem('supabase_url_v5'); // v5 key check
-    const storedKey = localStorage.getItem('supabase_key_v5');
+    // lib/supabaseClient.ts와 동일한 키 상수를 사용하여 불일치 방지
+    const storedUrl = localStorage.getItem(STORAGE_KEY_URL);
+    const storedKey = localStorage.getItem(STORAGE_KEY_KEY);
+    
     if (storedUrl) setConfigUrl(storedUrl);
     if (storedKey) setConfigKey(storedKey);
 
@@ -79,75 +87,88 @@ const App: React.FC = () => {
       alert('URL과 API Key를 모두 입력해주세요.');
       return;
     }
-    if (!configUrl.trim().startsWith('https://')) {
-        alert('URL은 https:// 로 시작해야 합니다.');
-        return;
-    }
+    // 기본 검증 후 supabaseClient의 저장 함수 호출 (여기서 reload 발생)
     saveSupabaseConfig(configUrl, configKey);
   };
 
   const handleError = (error: any, context: string) => {
-    console.error(`${context} Error Object:`, error);
-    
-    // API Key Error Check
-    if (
-      error?.message?.includes('Invalid API key') || 
-      error?.code === 'PGRST301' || 
-      error?.hint?.includes('API key')
-    ) {
-      setShowConfigModal(true);
-      return;
+    // 1. Detailed Logging for Debugging
+    if (typeof error === 'object' && error !== null) {
+        console.error(`${context} Error (Raw):`, error);
+        try {
+            console.error(`${context} Error (JSON):`, JSON.stringify(error, null, 2));
+        } catch (e) {
+            console.error(`${context} Error (Stringified):`, String(error));
+        }
+    } else {
+        console.error(`${context} Error:`, error);
     }
-
-    // Table Not Found Error Check
-    if (error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
-      alert(`오류: 데이터베이스 테이블을 찾을 수 없습니다.\n\nSupabase SQL Editor에서 테이블 생성 스크립트를 실행했는지 확인해주세요.\n(${error.message})`);
-      return;
-    }
-
-    // Advanced Error Message Extraction
-    let msg = '알 수 없는 오류';
     
+    let msg = '알 수 없는 오류가 발생했습니다.';
+
+    // 2. Smart Message Extraction
     if (typeof error === 'string') {
         msg = error;
-    } else if (error && typeof error === 'object') {
-        if (error.message) {
-            msg = error.message;
-            if (error.details) msg += ` (${error.details})`;
-            else if (error.hint) msg += ` (${error.hint})`;
+    } else if (error instanceof Error) {
+        msg = error.message;
+    } else if (typeof error === 'object' && error !== null) {
+        // Supabase / Postgrest Standard Error
+        if ('message' in error) {
+            msg = String(error.message);
+            if (error.details) msg += `\n(상세: ${error.details})`;
+            if (error.hint) msg += `\n(힌트: ${error.hint})`;
+            if (error.code) msg += `\n(코드: ${error.code})`;
         }
-        else if (error.error_description) msg = error.error_description;
-        else if (error.statusText) msg = error.statusText;
+        // Auth Error
+        else if ('error_description' in error) {
+            msg = String(error.error_description);
+        }
+        // Fetch/Network Response object
+        else if ('statusText' in error) {
+            msg = `HTTP Error: ${error.statusText}`;
+        }
+        // Fallback for generic objects
         else {
-            try {
+             try {
                 const json = JSON.stringify(error);
                 if (json !== '{}') {
-                    msg = json;
+                    msg = json.length > 200 ? json.substring(0, 200) + '...' : json;
                 } else {
-                    if (error.constructor && error.constructor.name !== 'Object') {
-                         msg = `Error Type: ${error.constructor.name}`;
-                    } else {
-                         msg = String(error);
-                    }
+                    // Empty JSON usually means a native Event object (Network error etc)
+                    msg = '네트워크 연결 오류 또는 서버 응답이 없습니다.';
                 }
-            } catch {
+             } catch {
                 msg = String(error);
-            }
+             }
         }
     }
 
-    // 404 HTML Page Response Check (잘못된 URL로 인해 HTML 에러 페이지가 반환되는 경우)
-    if (typeof msg === 'string' && (msg.includes('<!DOCTYPE html') || msg.includes('<html'))) {
-        msg = 'Supabase URL이 올바르지 않거나 연결할 수 없습니다. (404 Not Found)';
-        setShowConfigModal(true);
+    const lowerMsg = msg.toLowerCase();
+
+    // 3. Actionable Checks
+    // Auth / API Key
+    if (
+        lowerMsg.includes('invalid api key') || 
+        lowerMsg.includes('jwt') || 
+        lowerMsg.includes('apikey') || 
+        lowerMsg.includes('service_role')
+    ) {
+      setShowConfigModal(true);
+      return; // Don't alert if we show the modal
     }
 
-    // Prevent [object Object] in alert
-    if (msg === '[object Object]') {
-        msg = '상세 내용을 확인할 수 없는 오류입니다. 콘솔을 확인해주세요.';
+    // HTML Response (SPA/404 issues)
+    if (lowerMsg.includes('<!doctype') || lowerMsg.includes('<html')) {
+        msg = '서버 URL 설정이 올바르지 않습니다. (HTML 응답 반환됨)';
+        setShowConfigModal(true);
     }
     
-    alert(`${context} 실패: ${msg}`);
+    // Missing Tables
+    if (lowerMsg.includes('relation') && lowerMsg.includes('does not exist')) {
+        msg = `테이블을 찾을 수 없습니다. Supabase SQL Editor에서 테이블 생성 쿼리를 실행했는지 확인해주세요.\n\n${msg}`;
+    }
+
+    alert(`${context} 실패:\n${msg}`);
   };
 
   const fetchAllData = async () => {
@@ -161,7 +182,7 @@ const App: React.FC = () => {
 
       if (ncrError) {
          handleError(ncrError, "데이터 조회(NCR)");
-         if (ncrError.message?.includes('Invalid API key')) {
+         if (ncrError.message?.includes('Invalid API key') || ncrError.code === 'PGRST301') {
            setIsLoading(false);
            return;
          }
@@ -182,12 +203,9 @@ const App: React.FC = () => {
         .select('*')
         .order('month', { ascending: true });
       
-      if (cError) {
-         // 테이블 없음 에러는 무시하지 않고 경고 (하지만 앱은 계속 실행)
-         console.warn("Metrics Fetch Warning:", cError.message);
-      }
+      if (cError) console.warn("Metrics Fetch Warning:", cError);
       
-      const typedMetrics = (cMetrics || []).map((m: any) => ({
+      setCustomerMetrics((cMetrics || []).map((m: any) => ({
         id: m.id,
         year: Number(m.year),
         customer: m.customer,
@@ -196,8 +214,25 @@ const App: React.FC = () => {
         inspectionQty: Number(m.inspection_qty || 0),
         defects: Number(m.defects || 0),
         actual: Number(m.actual || 0)
-      }));
-      setCustomerMetrics(typedMetrics);
+      })));
+
+      // 3. 수입 검사(협력업체) 실적 가져오기
+      const { data: iMetrics, error: iError } = await supabase
+        .from('incoming_metrics')
+        .select('*')
+        .order('month', { ascending: true });
+
+      if (iError) console.warn("Incoming Metrics Fetch Warning:", iError);
+
+      setIncomingMetrics((iMetrics || []).map((m: any) => ({
+        id: m.id,
+        year: Number(m.year),
+        month: Number(m.month),
+        supplier: m.supplier,
+        incomingQty: Number(m.incoming_qty || 0),
+        defectQty: Number(m.defect_qty || 0),
+        ppm: Number(m.ppm || 0)
+      })));
 
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
@@ -210,7 +245,6 @@ const App: React.FC = () => {
   const handleSaveCustomerMetrics = async (payload: CustomerMetric | CustomerMetric[]) => {
     try {
       const metricsArray = Array.isArray(payload) ? payload : [payload];
-      
       const dbPayload = metricsArray.map(m => ({
         year: m.year,
         month: m.month,
@@ -221,23 +255,69 @@ const App: React.FC = () => {
         actual: m.actual
       }));
 
-      console.log("전송 데이터 상세:", dbPayload);
-
-      const { data, error } = await supabase
-        .from('customer_metrics')
-        .upsert(dbPayload, { onConflict: 'customer,year,month' })
-        .select();
-
-      if (error) {
-        throw error;
-      }
-
-      console.log("서버 응답 결과:", data);
+      const { error } = await supabase.from('customer_metrics').upsert(dbPayload, { onConflict: 'customer,year,month' });
+      if (error) throw error;
       await fetchAllData();
       return true;
-
     } catch (e: any) {
       handleError(e, "지표 저장");
+      return false;
+    }
+  };
+
+  const handleSaveIncomingMetrics = async (payload: IncomingMetric) => {
+    try {
+      // 1. DB에 저장할 객체 생성
+      const dbPayload: any = {
+        year: payload.year,
+        month: payload.month,
+        supplier: payload.supplier,
+        incoming_qty: payload.incomingQty,
+        defect_qty: payload.defectQty,
+        ppm: payload.ppm
+      };
+
+      let error = null;
+
+      // 2. 로직: ID가 있으면 Update, 없으면 조회 후 Update/Insert (유니크 제약 조건 미설정 대비)
+      if (payload.id) {
+         // 수정 모드: ID로 직접 업데이트
+         const { error: updateError } = await supabase
+           .from('incoming_metrics')
+           .update(dbPayload)
+           .eq('id', payload.id);
+         error = updateError;
+      } else {
+         // 신규 등록 모드: 중복 데이터 확인
+         const { data: existing } = await supabase
+           .from('incoming_metrics')
+           .select('id')
+           .eq('year', payload.year)
+           .eq('month', payload.month)
+           .eq('supplier', payload.supplier)
+           .maybeSingle();
+         
+         if (existing?.id) {
+           // 이미 존재하면 업데이트
+           const { error: updateError } = await supabase
+             .from('incoming_metrics')
+             .update(dbPayload)
+             .eq('id', existing.id);
+           error = updateError;
+         } else {
+           // 없으면 새로 추가
+           const { error: insertError } = await supabase
+             .from('incoming_metrics')
+             .insert(dbPayload);
+           error = insertError;
+         }
+      }
+
+      if (error) throw error;
+      await fetchAllData();
+      return true;
+    } catch (e: any) {
+      handleError(e, "수입검사 실적 저장");
       return false;
     }
   };
@@ -255,11 +335,7 @@ const App: React.FC = () => {
       };
       
       const { error } = await supabase.from('ncr_entries').upsert(dbPayload);
-      
-      if (error) {
-        throw error;
-      }
-      
+      if (error) throw error;
       await fetchAllData();
       setShowForm(false);
     } catch (e: any) { 
@@ -414,7 +490,7 @@ const App: React.FC = () => {
               </div>
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
-            {activeTab === 'incoming' && <IncomingQuality />}
+            {activeTab === 'incoming' && <IncomingQuality metrics={incomingMetrics} onSave={handleSaveIncomingMetrics} />}
             {activeTab === 'process' && <ProcessQuality />}
             {activeTab === 'outgoing' && <OutgoingQuality />}
           </div>

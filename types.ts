@@ -94,6 +94,16 @@ export interface CustomerMetric {
   actual: number; // 계산된 실적 PPM
 }
 
+export interface IncomingMetric {
+  id?: string;
+  year: number;
+  month: number;
+  supplier: string; // 협력업체명
+  incomingQty: number; // 입고수량
+  defectQty: number; // 불량수량
+  ppm: number; // 계산된 PPM
+}
+
 export interface DashboardTab {
   id: 'overall' | 'ncr' | 'customer' | 'incoming' | 'process' | 'outgoing';
   label: string;
