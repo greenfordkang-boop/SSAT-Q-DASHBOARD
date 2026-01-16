@@ -1,76 +1,201 @@
 
-import React from 'react';
-import { NCREntry } from '../types';
+import React, { useMemo } from 'react';
+import { NCREntry, CustomerMetric, SupplierMetric } from '../types';
 
 interface DashboardProps {
-  data: NCREntry[];
+  ncrData: NCREntry[];
+  customerMetrics: CustomerMetric[];
+  supplierMetrics: SupplierMetric[];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data }) => {
-  const total = data.length;
-  const closed = data.filter(d => d.status === 'Closed').length;
-  const open = data.filter(d => d.status === 'Open').length;
-  const delay = data.filter(d => d.status === 'Delay').length;
+const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplierMetrics }) => {
+  // NCR 통계
+  const ncrStats = useMemo(() => {
+    const total = ncrData.length;
+    const closed = ncrData.filter(d => d.status === 'Closed').length;
+    const open = ncrData.filter(d => d.status === 'Open').length;
+    const delay = ncrData.filter(d => d.status === 'Delay').length;
+    return { total, closed, open, delay };
+  }, [ncrData]);
+
+  // 고객품질 통계 (2026년 기준)
+  const customerStats = useMemo(() => {
+    const currentYear = 2026;
+    const yearData = customerMetrics.filter(m => m.year === currentYear);
+
+    const totalInspection = yearData.reduce((sum, m) => sum + m.inspectionQty, 0);
+    const totalDefects = yearData.reduce((sum, m) => sum + m.defects, 0);
+    const avgPpm = totalInspection > 0 ? Math.round((totalDefects / totalInspection) * 1000000) : 0;
+    const avgTarget = yearData.length > 0 ? Math.round(yearData.reduce((sum, m) => sum + m.target, 0) / yearData.length) : 10;
+    const achievement = avgTarget > 0 ? Math.min(100, Math.round((1 - avgPpm / avgTarget) * 100)) : 0;
+
+    return { totalInspection, totalDefects, avgPpm, avgTarget, achievement };
+  }, [customerMetrics]);
+
+  // 수입검사 통계 (2026년 기준)
+  const supplierStats = useMemo(() => {
+    const currentYear = 2026;
+    const yearData = supplierMetrics.filter(m => m.year === currentYear);
+
+    const totalIncoming = yearData.reduce((sum, m) => sum + m.incomingQty, 0);
+    const totalInspection = yearData.reduce((sum, m) => sum + m.inspectionQty, 0);
+    const totalDefects = yearData.reduce((sum, m) => sum + m.defects, 0);
+    const avgPpm = totalInspection > 0 ? Math.round((totalDefects / totalInspection) * 1000000) : 0;
+    const avgTarget = yearData.length > 0 ? Math.round(yearData.reduce((sum, m) => sum + m.target, 0) / yearData.length) : 7500;
+    const achievement = avgTarget > 0 ? Math.min(100, Math.round((1 - avgPpm / avgTarget) * 100)) : 0;
+
+    return { totalIncoming, totalInspection, totalDefects, avgPpm, avgTarget, achievement };
+  }, [supplierMetrics]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* 헤더 */}
       <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm text-center">
         <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">품질관리 종합 대시보드</h2>
         <p className="text-slate-500 leading-relaxed max-w-2xl mx-auto">
-          고객품질 / 수입 / 공정(사출, 도장, 조립) / 출하품질 지표를 <br/>
+          NCR / 고객품질 / 수입검사 / 공정품질 / 출하품질 지표를<br/>
           실시간 데이터 분석을 통해 종합적으로 모니터링합니다.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <p className="text-xs font-bold text-slate-400 uppercase">전체 부적합</p>
-          <p className="text-4xl font-black mt-2 text-slate-900">{total}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <p className="text-xs font-bold text-emerald-500 uppercase">조치 완료</p>
-          <p className="text-4xl font-black mt-2 text-emerald-600">{closed}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <p className="text-xs font-bold text-blue-500 uppercase">진행 (Open)</p>
-          <p className="text-4xl font-black mt-2 text-blue-600">{open}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <p className="text-xs font-bold text-rose-500 uppercase">지연 (Delay)</p>
-          <p className="text-4xl font-black mt-2 text-rose-600">{delay}</p>
+      {/* 1. NCR 현황 */}
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-3xl shadow-xl">
+        <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          1. NCR (부적합 보고서)
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-slate-300 uppercase mb-2">전체 부적합</p>
+            <p className="text-4xl font-black text-white">{ncrStats.total}</p>
+          </div>
+          <div className="bg-emerald-500/20 backdrop-blur-sm p-6 rounded-2xl border border-emerald-400/30">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">조치 완료</p>
+            <p className="text-4xl font-black text-emerald-400">{ncrStats.closed}</p>
+          </div>
+          <div className="bg-blue-500/20 backdrop-blur-sm p-6 rounded-2xl border border-blue-400/30">
+            <p className="text-xs font-bold text-blue-200 uppercase mb-2">진행 중 (OPEN)</p>
+            <p className="text-4xl font-black text-blue-400">{ncrStats.open}</p>
+          </div>
+          <div className="bg-rose-500/20 backdrop-blur-sm p-6 rounded-2xl border border-rose-400/30">
+            <p className="text-xs font-bold text-rose-200 uppercase mb-2">지연 (DELAY)</p>
+            <p className="text-4xl font-black text-rose-400">{ncrStats.delay}</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 rounded-3xl text-white shadow-xl">
-           <h3 className="text-lg font-black mb-4 flex items-center gap-2">
-             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-             부문별 목표 달성률
-           </h3>
-           <div className="space-y-6">
-              <div>
-                <div className="flex justify-between text-sm font-bold mb-2"><span>고객품질</span><span>92%</span></div>
-                <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden"><div className="bg-white h-full" style={{width: '92%'}}></div></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm font-bold mb-2"><span>수입검사</span><span>85%</span></div>
-                <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden"><div className="bg-white h-full" style={{width: '85%'}}></div></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm font-bold mb-2"><span>출하품질</span><span>100%</span></div>
-                <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden"><div className="bg-white h-full" style={{width: '100%'}}></div></div>
-              </div>
-           </div>
-        </div>
-        
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-center">
-          <div className="text-center">
-            <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <h4 className="font-black text-slate-800">최근 업데이트</h4>
-            <p className="text-slate-400 text-sm mt-1">실시간 품질 지표 동기화 진행 중...</p>
+      {/* 2. 고객품질 */}
+      <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 rounded-3xl shadow-xl">
+        <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          2. 고객품질 (2026년)
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-blue-200 uppercase mb-2">검사수량</p>
+            <p className="text-3xl font-black text-white">{customerStats.totalInspection.toLocaleString()}</p>
           </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-blue-200 uppercase mb-2">불량수</p>
+            <p className="text-3xl font-black text-white">{customerStats.totalDefects.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-blue-200 uppercase mb-2">실적 PPM</p>
+            <p className="text-3xl font-black text-white">{customerStats.avgPpm.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-blue-200 uppercase mb-2">목표 PPM</p>
+            <p className="text-3xl font-black text-white">{customerStats.avgTarget.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-blue-200 uppercase mb-2">달성률</p>
+            <p className="text-3xl font-black text-white">{customerStats.achievement}%</p>
+            <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden mt-2">
+              <div className="bg-white h-full transition-all duration-500" style={{width: `${Math.min(100, customerStats.achievement)}%`}}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. 수입검사 */}
+      <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-8 rounded-3xl shadow-xl">
+        <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+          </svg>
+          3. 수입검사 (2026년)
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">입고수량</p>
+            <p className="text-3xl font-black text-white">{supplierStats.totalIncoming.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">검사수량</p>
+            <p className="text-3xl font-black text-white">{supplierStats.totalInspection.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">불량수</p>
+            <p className="text-3xl font-black text-white">{supplierStats.totalDefects.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">실적 PPM</p>
+            <p className="text-3xl font-black text-white">{supplierStats.avgPpm.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">목표 PPM</p>
+            <p className="text-3xl font-black text-white">{supplierStats.avgTarget.toLocaleString()}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl border border-white/20">
+            <p className="text-xs font-bold text-emerald-200 uppercase mb-2">달성률</p>
+            <p className="text-3xl font-black text-white">{supplierStats.achievement}%</p>
+            <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden mt-2">
+              <div className="bg-white h-full transition-all duration-500" style={{width: `${Math.min(100, supplierStats.achievement)}%`}}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. 공정품질 (준비 중) */}
+      <div className="bg-gradient-to-br from-orange-600 to-orange-800 p-8 rounded-3xl shadow-xl">
+        <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          4. 공정품질 (사출 / 도장 / 조립)
+        </h3>
+        <div className="bg-white/10 backdrop-blur-sm p-12 rounded-2xl border border-white/20 text-center">
+          <div className="bg-orange-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
+          <h4 className="font-black text-white text-xl mb-2">데이터 준비 중</h4>
+          <p className="text-orange-200 text-sm">공정품질 지표 데이터 입력 기능을 개발 중입니다.</p>
+        </div>
+      </div>
+
+      {/* 5. 출하품질 */}
+      <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-8 rounded-3xl shadow-xl">
+        <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+          </svg>
+          5. 출하품질
+        </h3>
+        <div className="bg-white/10 backdrop-blur-sm p-12 rounded-2xl border border-white/20 text-center">
+          <div className="bg-purple-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
+          <h4 className="font-black text-white text-xl mb-2">데이터 준비 중</h4>
+          <p className="text-purple-200 text-sm">출하품질 지표 데이터 입력 기능을 개발 중입니다.</p>
         </div>
       </div>
     </div>
