@@ -270,15 +270,28 @@ const App: React.FC = () => {
     try {
       const metricsArray = Array.isArray(payload) ? payload : [payload];
 
-      const dbPayload = metricsArray.map(m => ({
-        year: m.year,
-        month: m.month,
-        supplier: m.supplier,
-        target: m.target,
-        incoming_qty: m.incomingQty,
-        inspection_qty: m.inspectionQty,
-        defects: m.defects,
-        actual: m.actual
+      // 기존 데이터 조회하여 id 매핑
+      const dbPayload = await Promise.all(metricsArray.map(async m => {
+        // 기존 레코드 검색
+        const { data: existing } = await supabase
+          .from('supplier_metrics')
+          .select('id')
+          .eq('supplier', m.supplier)
+          .eq('year', m.year)
+          .eq('month', m.month)
+          .single();
+
+        return {
+          ...(existing?.id ? { id: existing.id } : {}),
+          year: m.year,
+          month: m.month,
+          supplier: m.supplier,
+          target: m.target,
+          incoming_qty: m.incomingQty,
+          inspection_qty: m.inspectionQty,
+          defects: m.defects,
+          actual: m.actual
+        };
       }));
 
       console.log("협력업체 지표 전송 데이터:", dbPayload);
