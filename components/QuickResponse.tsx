@@ -152,11 +152,14 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
               <tr>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">NO</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생일</th>
-                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생장소</th>
-                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생수량</th>
-                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">차종/품명</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생<br/>장소</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">호기</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">불량수</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">차종/<br/>품명</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">현상/문제점</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">담당자</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">불량</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">공정</th>
                 <th colSpan={6} className="px-3 py-2 text-center font-black text-slate-700 bg-yellow-50 border-r border-t">
                   목표달성 & 완료(GREEN)별
                 </th>
@@ -164,6 +167,9 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                 <th className="px-3 py-3 text-center font-black text-slate-700">작업</th>
               </tr>
               <tr className="bg-yellow-50">
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="border-r"></th>
                 <th className="border-r"></th>
                 <th className="border-r"></th>
                 <th className="border-r"></th>
@@ -184,7 +190,7 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
             <tbody className="divide-y divide-slate-100">
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={17} className="px-4 py-12 text-center text-slate-400">
                     등록된 신속대응 추적 데이터가 없습니다
                   </td>
                 </tr>
@@ -194,10 +200,13 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                     <td className="px-3 py-3 text-center font-bold text-slate-600 border-r">{index + 1}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r whitespace-nowrap">{entry.date}</td>
                     <td className="px-3 py-3 text-center font-bold text-slate-800 border-r">{entry.department}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.machineNo || '-'}</td>
                     <td className="px-3 py-3 text-center text-rose-600 font-bold border-r">{entry.defectCount}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.model}</td>
                     <td className="px-3 py-3 text-left text-slate-700 border-r max-w-xs truncate">{entry.defectContent || '-'}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.materialManager || '-'}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.defectType || '-'}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.process || '-'}</td>
                     <td className="px-3 py-3 text-center bg-emerald-50 border-r">{getStatusBadge(entry.status24H)}</td>
                     <td className="px-3 py-3 text-center bg-blue-50 border-r">{getStatusBadge(entry.status3D)}</td>
                     <td className="px-3 py-3 text-center bg-blue-50 border-r">{getStatusBadge(entry.status14DAY)}</td>
