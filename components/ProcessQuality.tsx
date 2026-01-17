@@ -49,7 +49,7 @@ const ProcessQuality: React.FC = () => {
 
       // Initialize Gemini AI
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
       // Create prompt for AI analysis
       const prompt = `당신은 제조업 품질 관리 전문가입니다. 다음은 MES 시스템에서 추출한 공정별 주간 실적 데이터입니다.
