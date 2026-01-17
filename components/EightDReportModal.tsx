@@ -15,6 +15,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
   const [isExporting, setIsExporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const hasApiKey = !!import.meta.env.VITE_GEMINI_API_KEY;
   
   const [report, setReport] = useState<EightDData>({
     docNo: `2025.${entry.month.toString().padStart(2, '0')}.${entry.id?.slice(0, 4).toUpperCase() || 'NEW'}`,
@@ -68,7 +69,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
   const generateAIDraft = async () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      alert('VITE_GEMINI_API_KEY 설정이 필요합니다.');
+      alert('⚠️ Gemini API 키가 설정되지 않았습니다.\n\n📋 설정 방법:\n\n1. Vercel 대시보드 접속\n2. Settings → Environment Variables\n3. 변수 추가:\n   - Name: VITE_GEMINI_API_KEY\n   - Value: 본인의 Gemini API 키\n   - Environments: Production, Preview, Development 체크\n4. 저장 후 Deployments에서 Redeploy 클릭\n\n🔑 API 키 발급: https://makersuite.google.com/app/apikey');
       return;
     }
     setIsGenerating(true);
@@ -166,7 +167,29 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
                <h2 className="text-sm font-bold">8D 대책 리포트 작성</h2>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={generateAIDraft} disabled={isGenerating} className="px-4 py-1.5 bg-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all">
+              {/* API 키 상태 배지 */}
+              <div className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 ${
+                hasApiKey
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-600 text-white'
+              }`}>
+                {hasApiKey ? (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    AI 가능
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
+                    </svg>
+                    API 미설정
+                  </>
+                )}
+              </div>
+              <button onClick={generateAIDraft} disabled={isGenerating} className="px-4 py-1.5 bg-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 {isGenerating ? 'AI 분석중...' : 'AI 대책 초안 생성'}
               </button>
               <button onClick={onClose} className="text-slate-400 hover:text-white">
