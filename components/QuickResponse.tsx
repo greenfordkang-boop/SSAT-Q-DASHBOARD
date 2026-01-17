@@ -177,12 +177,12 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                 <th className="border-r"></th>
                 <th className="border-r"></th>
                 <th className="border-r"></th>
-                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-emerald-50 border-r">24HR</th>
-                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-blue-50 border-r">3D</th>
-                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-blue-50 border-r">14D</th>
-                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">24D</th>
-                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">25D</th>
-                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">30D</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-emerald-50 border-r">봉쇄조치<br/>(24HR)</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-blue-50 border-r">원인분석<br/>(3D)</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-blue-50 border-r">시정조치<br/>(14D)</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">실수방지장치/검출(1D)<br/>계층적공정감사(14D)<br/>시정조치결과확인(24D)</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">PFMEA.CP개정(25D)<br/>작업표준서,지침서<br/>작업자교육(25D)</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">습득교훈<br/>(30D)</th>
                 <th className="border-r"></th>
                 <th></th>
               </tr>
