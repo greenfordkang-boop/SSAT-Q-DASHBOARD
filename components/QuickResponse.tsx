@@ -150,47 +150,61 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
           <table className="w-full text-xs">
             <thead className="bg-slate-50 border-b-2 border-slate-200">
               <tr>
-                <th className="px-3 py-3 text-left font-black text-slate-700">NO</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">일자</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">부서</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">호기</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">불량수</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">모델명</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">불량</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700">공정</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700 bg-emerald-50">24H</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700 bg-blue-50">3D</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700 bg-blue-50">14DAY</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700 bg-rose-50">24D</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700 bg-rose-50">25D</th>
-                <th className="px-3 py-3 text-left font-black text-slate-700 bg-rose-50">30D</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">NO</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생일</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생장소</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생수량</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">차종/품명</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">현상/문제점</th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">담당자</th>
+                <th colSpan={6} className="px-3 py-2 text-center font-black text-slate-700 bg-yellow-50 border-r border-t">
+                  목표달성 & 완료(GREEN)별
+                </th>
+                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">조치사항/개선대책</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700">작업</th>
+              </tr>
+              <tr className="bg-yellow-50">
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="border-r"></th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-emerald-50 border-r">24HR</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-blue-50 border-r">3D</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-blue-50 border-r">14D</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">24D</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">25D</th>
+                <th className="px-2 py-2 text-center font-bold text-[10px] text-slate-700 bg-rose-50 border-r">30D</th>
+                <th className="border-r"></th>
+                <th></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={14} className="px-4 py-12 text-center text-slate-400">
                     등록된 신속대응 추적 데이터가 없습니다
                   </td>
                 </tr>
               ) : (
                 data.map((entry, index) => (
                   <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-3 py-3 font-bold text-slate-600">{index + 1}</td>
-                    <td className="px-3 py-3 text-slate-700">{entry.date}</td>
-                    <td className="px-3 py-3 font-bold text-slate-800">{entry.department}</td>
-                    <td className="px-3 py-3 text-slate-700">{entry.machineNo}</td>
-                    <td className="px-3 py-3 text-rose-600 font-bold">{entry.defectCount}</td>
-                    <td className="px-3 py-3 text-slate-700">{entry.model}</td>
-                    <td className="px-3 py-3 text-slate-700">{entry.defectType}</td>
-                    <td className="px-3 py-3 text-slate-700">{entry.process}</td>
-                    <td className="px-3 py-3 bg-emerald-50">{getStatusBadge(entry.status24H)}</td>
-                    <td className="px-3 py-3 bg-blue-50">{getStatusBadge(entry.status3D)}</td>
-                    <td className="px-3 py-3 bg-blue-50">{getStatusBadge(entry.status14DAY)}</td>
-                    <td className="px-3 py-3 bg-rose-50">{getStatusBadge(entry.status24D)}</td>
-                    <td className="px-3 py-3 bg-rose-50">{getStatusBadge(entry.status25D)}</td>
-                    <td className="px-3 py-3 bg-rose-50">{getStatusBadge(entry.status30D)}</td>
+                    <td className="px-3 py-3 text-center font-bold text-slate-600 border-r">{index + 1}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r whitespace-nowrap">{entry.date}</td>
+                    <td className="px-3 py-3 text-center font-bold text-slate-800 border-r">{entry.department}</td>
+                    <td className="px-3 py-3 text-center text-rose-600 font-bold border-r">{entry.defectCount}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.model}</td>
+                    <td className="px-3 py-3 text-left text-slate-700 border-r max-w-xs truncate">{entry.defectContent || '-'}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.materialManager || '-'}</td>
+                    <td className="px-3 py-3 text-center bg-emerald-50 border-r">{getStatusBadge(entry.status24H)}</td>
+                    <td className="px-3 py-3 text-center bg-blue-50 border-r">{getStatusBadge(entry.status3D)}</td>
+                    <td className="px-3 py-3 text-center bg-blue-50 border-r">{getStatusBadge(entry.status14DAY)}</td>
+                    <td className="px-3 py-3 text-center bg-rose-50 border-r">{getStatusBadge(entry.status24D)}</td>
+                    <td className="px-3 py-3 text-center bg-rose-50 border-r">{getStatusBadge(entry.status25D)}</td>
+                    <td className="px-3 py-3 text-center bg-rose-50 border-r">{getStatusBadge(entry.status30D)}</td>
+                    <td className="px-3 py-3 text-left text-slate-700 border-r max-w-xs truncate">{entry.remarks || entry.action || '-'}</td>
                     <td className="px-3 py-3">
                       <div className="flex justify-center gap-1">
                         <button
@@ -255,151 +269,67 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                     value={formData.date}
                     onChange={handleChange}
                     className="w-full border p-2.5 rounded-xl text-sm"
+                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">부서</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">발생장소 (부서)</label>
                   <input
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
                     className="w-full border p-2.5 rounded-xl text-sm font-bold"
-                    placeholder="LG전자"
+                    placeholder="예: LG전자"
+                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">호기</label>
-                  <input
-                    name="machineNo"
-                    value={formData.machineNo}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                    placeholder="5"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">불량수</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">발생수량 (불량수)</label>
                   <input
                     name="defectCount"
                     type="number"
                     value={formData.defectCount}
                     onChange={handleChange}
                     className="w-full border p-2.5 rounded-xl text-sm"
+                    placeholder="예: 1"
+                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">모델명</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">차종/품명 (모델명)</label>
                   <input
                     name="model"
                     value={formData.model}
                     onChange={handleChange}
                     className="w-full border p-2.5 rounded-xl text-sm"
-                    placeholder="AX EV"
+                    placeholder="예: AX EV"
+                    required
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">불량</label>
-                  <input
-                    name="defectType"
-                    value={formData.defectType}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">공정</label>
-                  <input
-                    name="process"
-                    value={formData.process}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                    placeholder="COVER REAR"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">코팅</label>
-                  <input
-                    name="coating"
-                    value={formData.coating}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">부위</label>
-                  <input
-                    name="area"
-                    value={formData.area}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">재료코드</label>
-                  <input
-                    name="materialCode"
-                    value={formData.materialCode}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">차폐</label>
-                  <input
-                    name="shielding"
-                    value={formData.shielding}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">조치</label>
-                  <input
-                    name="action"
-                    value={formData.action}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">자재담당자</label>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">담당자</label>
                   <input
                     name="materialManager"
                     value={formData.materialManager}
                     onChange={handleChange}
                     className="w-full border p-2.5 rounded-xl text-sm"
+                    placeholder="담당자 이름"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">지적회의 참석</label>
-                  <input
-                    name="meetingAttendance"
-                    value={formData.meetingAttendance}
+                <div className="md:col-span-3 space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">현상/문제점</label>
+                  <textarea
+                    name="defectContent"
+                    value={formData.defectContent}
                     onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">고객 MM</label>
-                  <input
-                    name="customerMM"
-                    value={formData.customerMM}
-                    onChange={handleChange}
-                    className="w-full border p-2.5 rounded-xl text-sm"
+                    rows={3}
+                    className="w-full border p-3 rounded-xl text-sm outline-none resize-none"
+                    placeholder="불량 현상 및 문제점을 상세히 입력하세요"
                   />
                 </div>
 
@@ -500,24 +430,14 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                 </div>
 
                 <div className="md:col-span-3 space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">불량내용</label>
-                  <textarea
-                    name="defectContent"
-                    value={formData.defectContent}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full border p-3 rounded-xl text-sm outline-none resize-none"
-                  />
-                </div>
-
-                <div className="md:col-span-3 space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">비고</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">조치사항 / 개선대책</label>
                   <textarea
                     name="remarks"
                     value={formData.remarks}
                     onChange={handleChange}
-                    rows={2}
+                    rows={3}
                     className="w-full border p-3 rounded-xl text-sm outline-none resize-none"
+                    placeholder="조치사항 및 개선대책을 입력하세요"
                   />
                 </div>
               </div>
