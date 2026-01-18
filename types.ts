@@ -156,6 +156,8 @@ export interface ProcessQualityData {
   uploadId: string;
   customer: string;
   partType: string; // 도장, 레이저, 사출, 인쇄, 조립, 증착
+  vehicleModel?: string;
+  productName?: string;
   productionQty: number;
   defectQty: number;
   defectAmount: number;
@@ -190,6 +192,22 @@ export interface ProcessQualityByCustomer {
 
 export interface ProcessQualityTimeSeries {
   date: string;
+  defectRate: number;
+  totalAmount: number;
+}
+
+export interface ProcessQualityByVehicleModel {
+  vehicleModel: string;
+  totalProduction: number;
+  totalDefects: number;
+  defectRate: number;
+  totalAmount: number;
+}
+
+export interface ProcessQualityByProductName {
+  productName: string;
+  totalProduction: number;
+  totalDefects: number;
   defectRate: number;
   totalAmount: number;
 }

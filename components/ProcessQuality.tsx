@@ -6,6 +6,8 @@ import type {
   ProcessQualityKPI,
   ProcessQualityByPartType,
   ProcessQualityByCustomer,
+  ProcessQualityByVehicleModel,
+  ProcessQualityByProductName,
   ProcessQualityTimeSeries
 } from '../types';
 
@@ -73,6 +75,42 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
       acc[item.customer].totalAmount += item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByCustomer>);
+    return Object.values(grouped).map(item => ({
+      ...item,
+      defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
+    })).sort((a, b) => b.totalAmount - a.totalAmount);
+  }, [data]);
+
+  const vehicleModelData: ProcessQualityByVehicleModel[] = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const grouped = data.reduce((acc, item) => {
+      const model = item.vehicleModel || '미분류';
+      if (!acc[model]) {
+        acc[model] = { vehicleModel: model, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
+      }
+      acc[model].totalProduction += item.productionQty;
+      acc[model].totalDefects += item.defectQty;
+      acc[model].totalAmount += item.defectAmount;
+      return acc;
+    }, {} as Record<string, ProcessQualityByVehicleModel>);
+    return Object.values(grouped).map(item => ({
+      ...item,
+      defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
+    })).sort((a, b) => b.totalAmount - a.totalAmount);
+  }, [data]);
+
+  const productNameData: ProcessQualityByProductName[] = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const grouped = data.reduce((acc, item) => {
+      const product = item.productName || '미분류';
+      if (!acc[product]) {
+        acc[product] = { productName: product, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
+      }
+      acc[product].totalProduction += item.productionQty;
+      acc[product].totalDefects += item.defectQty;
+      acc[product].totalAmount += item.defectAmount;
+      return acc;
+    }, {} as Record<string, ProcessQualityByProductName>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
@@ -393,6 +431,64 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
                     <span className={'font-semibold ' + (customer.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{customer.defectRate.toFixed(2)}%</span>
                   </td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatCurrency(customer.totalAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-900 mb-4">차종별 불량 현황</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">차종</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vehicleModelData.map((model, index) => (
+                <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-3 px-4 text-sm font-medium text-slate-900">{model.vehicleModel}</td>
+                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(model.totalProduction)}</td>
+                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(model.totalDefects)}</td>
+                  <td className="py-3 px-4 text-sm text-right">
+                    <span className={'font-semibold ' + (model.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{model.defectRate.toFixed(2)}%</span>
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatCurrency(model.totalAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-900 mb-4">품명별 불량 현황</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">품명</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {productNameData.map((product, index) => (
+                <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-3 px-4 text-sm font-medium text-slate-900">{product.productName}</td>
+                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
+                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalDefects)}</td>
+                  <td className="py-3 px-4 text-sm text-right">
+                    <span className={'font-semibold ' + (product.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{product.defectRate.toFixed(2)}%</span>
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatCurrency(product.totalAmount)}</td>
                 </tr>
               ))}
             </tbody>
