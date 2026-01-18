@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Database Verification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e4e8;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        #results.show {
+            display: block;
+        }
+
+        #results.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        #results.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        #results.partial {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+        }
+
+        .result-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .result-icon {
+            font-size: 24px;
+        }
+
+        .table-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+
+        .table-list li {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .table-list li.found {
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        .table-list li.missing {
+            background: rgba(220, 53, 69, 0.1);
+        }
+
+        .status-icon {
+            font-size: 18px;
+        }
+
+        .help-text {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .help-text strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Supabase Database Verification</h1>
+        <p class="subtitle">Verify that all required tables exist in your Supabase database</p>
+
+        <div class="input-group">
+            <label for="supabaseUrl">Supabase Project URL</label>
+            <input
+                type="text"
+                id="supabaseUrl"
+                placeholder="https://xxxxx.supabase.co"
+                value="https://xjjsqyawvojybuyrehrr.supabase.co"
+            >
+        </div>
+
+        <div class="input-group">
+            <label for="supabaseKey">Supabase Anon/Public Key</label>
+            <input
+                type="text"
+                id="supabaseKey"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                value="sb_publishable_vvaBbJHvo0pcUwaUiPW0ww_vElHC7GW"
+            >
+        </div>
+
+        <button onclick="verifyDatabase()" id="verifyBtn">
+            Verify Database Setup
+        </button>
+
+        <div id="results"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const REQUIRED_TABLES = [
+            { name: 'ncr_entries', description: 'NCR tracking' },
+            { name: 'customer_metrics', description: 'Customer quality metrics' },
+            { name: 'supplier_metrics', description: 'Supplier quality metrics' },
+            { name: 'outgoing_metrics', description: 'Outgoing quality metrics' },
+            { name: 'quick_response_entries', description: 'Quick response tracking' },
+            { name: 'process_quality_uploads', description: 'Process quality upload history (required for Excel upload)' },
+            { name: 'process_quality_data', description: 'Process quality data (required for Excel upload)' }
+        ];
+
+        async function verifyDatabase() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const btn = document.getElementById('verifyBtn');
+
+            // Validation
+            if (!url || !key) {
+                showResults('error', '❌ Error', 'Please enter both Supabase URL and API Key.');
+                return;
+            }
+
+            if (!url.startsWith('http')) {
+                showResults('error', '❌ Invalid URL', 'Supabase URL must start with https://');
+                return;
+            }
+
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = 'Checking database<span class="spinner"></span>';
+            resultsDiv.className = '';
+            resultsDiv.style.display = 'none';
+
+            try {
+                // Create Supabase client
+                const { createClient } = supabase;
+                const client = createClient(url, key);
+
+                // Check each table
+                const tableResults = [];
+
+                for (const table of REQUIRED_TABLES) {
+                    try {
+                        const { data, error } = await client
+                            .from(table.name)
+                            .select('*')
+                            .limit(1);
+
+                        if (error) {
+                            // Check if error is due to missing table
+                            if (error.message.includes('does not exist') ||
+                                error.message.includes('schema cache') ||
+                                error.message.includes('relation') && error.message.includes('does not exist')) {
+                                tableResults.push({ ...table, found: false });
+                            } else {
+                                // Other error (might be RLS, but table exists)
+                                tableResults.push({ ...table, found: true, warning: error.message });
+                            }
+                        } else {
+                            tableResults.push({ ...table, found: true });
+                        }
+                    } catch (err) {
+                        tableResults.push({ ...table, found: false, error: err.message });
+                    }
+                }
+
+                // Display results
+                displayResults(tableResults);
+
+            } catch (error) {
+                showResults('error', '❌ Connection Error',
+                    `Failed to connect to Supabase: ${error.message}<br><br>` +
+                    `Please check your URL and API key are correct.`
+                );
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Verify Database Setup';
+            }
+        }
+
+        function displayResults(tableResults) {
+            const foundTables = tableResults.filter(t => t.found);
+            const missingTables = tableResults.filter(t => !t.found);
+
+            let status = 'success';
+            let title = '✅ All Tables Found!';
+            let message = `All ${REQUIRED_TABLES.length} required tables exist in your database.`;
+
+            if (missingTables.length > 0) {
+                if (foundTables.length === 0) {
+                    status = 'error';
+                    title = '❌ No Tables Found';
+                    message = 'None of the required tables were found. You need to apply the database schema.';
+                } else {
+                    status = 'partial';
+                    title = '⚠️ Some Tables Missing';
+                    message = `Found ${foundTables.length} out of ${REQUIRED_TABLES.length} tables. Some tables are missing.`;
+                }
+            }
+
+            let html = `
+                <div class="result-header">
+                    <span class="result-icon">${status === 'success' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span>
+                    <span>${title}</span>
+                </div>
+                <p>${message}</p>
+            `;
+
+            if (foundTables.length > 0) {
+                html += '<ul class="table-list">';
+                foundTables.forEach(table => {
+                    html += `
+                        <li class="found">
+                            <span class="status-icon">✅</span>
+                            <strong>${table.name}</strong> - ${table.description}
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+            }
+
+            if (missingTables.length > 0) {
+                html += '<p style="margin-top: 20px; font-weight: 600;">Missing tables:</p>';
+                html += '<ul class="table-list">';
+                missingTables.forEach(table => {
+                    html += `
+                        <li class="missing">
+                            <span class="status-icon">❌</span>
+                            <strong>${table.name}</strong> - ${table.description}
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+
+                html += `
+                    <div class="help-text">
+                        <strong>How to fix this:</strong>
+                        1. Open your Supabase dashboard<br>
+                        2. Go to <strong>SQL Editor</strong><br>
+                        3. Copy the contents of <code>supabase-schema.sql</code><br>
+                        4. Paste and run the SQL script<br>
+                        5. Run this verification again<br><br>
+                        See <code>SETUP.md</code> for detailed instructions.
+                    </div>
+                `;
+            }
+
+            showResults(status, null, html);
+        }
+
+        function showResults(status, title, message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.className = `${status} show`;
+
+            if (title) {
+                resultsDiv.innerHTML = `
+                    <div class="result-header">
+                        <span class="result-icon">${status === 'success' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span>
+                        <span>${title}</span>
+                    </div>
+                    <p>${message}</p>
+                `;
+            } else {
+                resultsDiv.innerHTML = message;
+            }
+        }
+    </script>
+</body>
+</html>
