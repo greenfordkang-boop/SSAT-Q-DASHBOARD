@@ -116,33 +116,82 @@ export interface OutgoingMetric {
   actual: number; // 계산된 실적 PPM
 }
 
-export type ResponseStatus = 'G' | 'R' | 'Y' | 'N/A';
-
 export interface QuickResponseEntry {
   id?: string;
-  date: string; // 발생일자
-  department: string; // 부서
-  machineNo: string; // 호기
-  defectCount: number; // 불량수
-  model: string; // 모델명
-  defectType: string; // 불량
-  process: string; // 공정
-  defectContent: string; // 불량내용
-  coating: string; // 코팅
-  area: string; // 부위
-  materialCode: string; // 재료코드
-  shielding: string; // 차폐
-  action: string; // 조치
-  materialManager: string; // 자재담당자
-  meetingAttendance: string; // 지적회의 참석여부
-  status24H: ResponseStatus; // 24시간 대응 상태
-  status3D: ResponseStatus; // 3일 대응 상태
-  status14DAY: ResponseStatus; // 14일 대응 상태
-  status24D: ResponseStatus; // 24일 대응 상태
-  status25D: ResponseStatus; // 25일 대응 상태
-  status30D: ResponseStatus; // 30일 대응 상태
-  customerMM: string; // 고객 MM 여부
-  remarks: string; // 비고
+  date: string; // YYYY-MM-DD 형식
+  department: string;
+  machineNo: string;
+  defectCount: number;
+  model: string;
+  defectType: string;
+  process: string;
+  defectContent: string;
+  coating: string;
+  area: string;
+  materialCode: string;
+  shielding: string;
+  action: string;
+  materialManager: string;
+  meetingAttendance: string;
+  status24H: string;
+  status3D: string;
+  status14DAY: string;
+  status24D: string;
+  status25D: string;
+  status30D: string;
+  customerMM: string;
+  remarks: string;
+}
+
+export interface ProcessQualityUpload {
+  id?: string;
+  filename: string;
+  recordCount: number;
+  uploadDate: string;
+  createdAt?: string;
+}
+
+export interface ProcessQualityData {
+  id?: string;
+  uploadId: string;
+  customer: string;
+  partType: string; // 도장, 레이저, 사출, 인쇄, 조립, 증착
+  productionQty: number;
+  defectQty: number;
+  defectAmount: number;
+  defectRate: number;
+  dataDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProcessQualityKPI {
+  totalProduction: number;
+  totalDefects: number;
+  averageDefectRate: number;
+  totalDefectAmount: number;
+}
+
+export interface ProcessQualityByPartType {
+  partType: string;
+  totalProduction: number;
+  totalDefects: number;
+  defectRate: number;
+  totalAmount: number;
+}
+
+export interface ProcessQualityByCustomer {
+  customer: string;
+  totalProduction: number;
+  totalDefects: number;
+  defectRate: number;
+  totalAmount: number;
+}
+
+export interface ProcessQualityTimeSeries {
+  date: string;
+  defectRate: number;
+  totalAmount: number;
 }
 
 export interface DashboardTab {
