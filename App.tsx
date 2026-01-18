@@ -561,6 +561,10 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
+      // ⭐ 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteUploadsError } = await supabase.from('process_quality_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteUploadsError) throw deleteUploadsError;
+
       const { data: uploadRecord, error: uploadError } = await supabase.from('process_quality_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
@@ -570,19 +574,37 @@ const App: React.FC = () => {
         return isNaN(num) ? 0 : num;
       };
 
+      // Helper function to find column value with flexible matching (removes brackets and extra spaces)
+      const findColumnValue = (row: any, ...possibleNames: string[]): any => {
+        // First try exact match
+        for (const name of possibleNames) {
+          if (row[name] !== undefined) return row[name];
+        }
+        // Then try flexible matching (remove brackets and trim)
+        const keys = Object.keys(row);
+        for (const name of possibleNames) {
+          const normalizedName = name.replace(/\[.*?\]/g, '').trim();
+          for (const key of keys) {
+            const normalizedKey = key.replace(/\[.*?\]/g, '').trim();
+            if (normalizedKey === normalizedName) return row[key];
+          }
+        }
+        return undefined;
+      };
+
       const processedData = jsonData.map((row: any) => {
-        const productionQty = safeNumber(row['생산수량'] || row['생산량'] || 0);
-        const defectQty = safeNumber(row['불량수량'] || row['불량량'] || 0);
+        const productionQty = safeNumber(findColumnValue(row, '생산수량', '생산량') || 0);
+        const defectQty = safeNumber(findColumnValue(row, '불량수량', '불량량') || 0);
         const defectRate = productionQty > 0 ? (defectQty / productionQty) * 100 : 0;
         return {
           upload_id: uploadRecord.id,
-          customer: String(row['고객사'] || row['거래처'] || ''),
-          part_type: String(row['부품유형'] || row['공정'] || ''),
+          customer: String(findColumnValue(row, '고객사', '거래처') || ''),
+          part_type: String(findColumnValue(row, '부품유형', '공정') || ''),
           production_qty: productionQty,
           defect_qty: defectQty,
-          defect_amount: safeNumber(row['불량금액'] || row['금액'] || 0),
+          defect_amount: safeNumber(findColumnValue(row, '불량금액', '금액') || 0),
           defect_rate: defectRate,
-          data_date: row['일자'] || row['날짜'] || new Date().toISOString().split('T')[0]
+          data_date: findColumnValue(row, '일자', '날짜') || new Date().toISOString().split('T')[0]
         };
       });
 
