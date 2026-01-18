@@ -564,9 +564,15 @@ const App: React.FC = () => {
       const { data: uploadRecord, error: uploadError } = await supabase.from('process_quality_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
+      // Helper function to safely convert to number, defaulting to 0 if NaN
+      const safeNumber = (value: any): number => {
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+      };
+
       const processedData = jsonData.map((row: any) => {
-        const productionQty = Number(row['생산수량'] || row['생산량'] || 0);
-        const defectQty = Number(row['불량수량'] || row['불량량'] || 0);
+        const productionQty = safeNumber(row['생산수량'] || row['생산량'] || 0);
+        const defectQty = safeNumber(row['불량수량'] || row['불량량'] || 0);
         const defectRate = productionQty > 0 ? (defectQty / productionQty) * 100 : 0;
         return {
           upload_id: uploadRecord.id,
@@ -574,7 +580,7 @@ const App: React.FC = () => {
           part_type: String(row['부품유형'] || row['공정'] || ''),
           production_qty: productionQty,
           defect_qty: defectQty,
-          defect_amount: Number(row['불량금액'] || row['금액'] || 0),
+          defect_amount: safeNumber(row['불량금액'] || row['금액'] || 0),
           defect_rate: defectRate,
           data_date: row['일자'] || row['날짜'] || new Date().toISOString().split('T')[0]
         };
