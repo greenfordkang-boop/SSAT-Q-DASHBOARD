@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -9,7 +9,9 @@ import CustomerQuality from './components/CustomerQuality';
 import IncomingQuality from './components/IncomingQuality';
 import ProcessQuality from './components/ProcessQuality';
 import OutgoingQuality from './components/OutgoingQuality';
+import QuickResponse from './components/QuickResponse';
 import { supabase, saveSupabaseConfig, resetSupabaseConfig } from './lib/supabaseClient';
+import * as XLSX from 'xlsx';
 
 const TABS: DashboardTab[] = [
   { id: 'overall', label: '종합현황' },
@@ -18,6 +20,7 @@ const TABS: DashboardTab[] = [
   { id: 'incoming', label: '수입검사' },
   { id: 'process', label: '공정품질' },
   { id: 'outgoing', label: '출하품질' },
+  { id: 'quickresponse', label: '신속대응' },
 ];
 
 const App: React.FC = () => {
@@ -28,6 +31,10 @@ const App: React.FC = () => {
   const [ncrData, setNcrData] = useState<NCREntry[]>([]);
   const [customerMetrics, setCustomerMetrics] = useState<CustomerMetric[]>([]);
   const [supplierMetrics, setSupplierMetrics] = useState<SupplierMetric[]>([]);
+  const [outgoingMetrics, setOutgoingMetrics] = useState<OutgoingMetric[]>([]);
+  const [quickResponseData, setQuickResponseData] = useState<QuickResponseEntry[]>([]);
+  const [processQualityData, setProcessQualityData] = useState<ProcessQualityData[]>([]);
+  const [processQualityUploads, setProcessQualityUploads] = useState<ProcessQualityUpload[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -223,6 +230,109 @@ const App: React.FC = () => {
       }));
       setSupplierMetrics(typedSupplierMetrics);
 
+      // 4. 출하 품질 실적 가져오기
+      const { data: oMetrics, error: oError } = await supabase
+        .from('outgoing_metrics')
+        .select('*')
+        .order('month', { ascending: true });
+
+      if (oError) {
+        console.warn("Outgoing Metrics Fetch Warning:", oError.message);
+      }
+
+      const typedOutgoingMetrics = (oMetrics || []).map((m: any) => ({
+        id: m.id,
+        year: Number(m.year),
+        month: Number(m.month),
+        target: Number(m.target),
+        inspectionQty: Number(m.inspection_qty || 0),
+        defects: Number(m.defects || 0),
+        actual: Number(m.actual || 0)
+      }));
+      setOutgoingMetrics(typedOutgoingMetrics);
+
+      // 5. 신속대응 추적 데이터 가져오기
+      const { data: qrData, error: qrError } = await supabase
+        .from('quick_response_entries')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (qrError) {
+        console.warn("Quick Response Fetch Warning:", qrError.message);
+      }
+
+      const typedQuickResponseData = (qrData || []).map((q: any) => ({
+        id: q.id,
+        date: q.date,
+        department: q.department,
+        machineNo: q.machine_no || '',
+        defectCount: Number(q.defect_count || 0),
+        model: q.model,
+        defectType: q.defect_type || '',
+        process: q.process || '',
+        defectContent: q.defect_content || '',
+        coating: q.coating || '',
+        area: q.area || '',
+        materialCode: q.material_code || '',
+        shielding: q.shielding || '',
+        action: q.action || '',
+        materialManager: q.material_manager || '',
+        meetingAttendance: q.meeting_attendance || '',
+        status24H: q.status_24h || 'N/A',
+        status3D: q.status_3d || 'N/A',
+        status14DAY: q.status_14day || 'N/A',
+        status24D: q.status_24d || 'N/A',
+        status25D: q.status_25d || 'N/A',
+        status30D: q.status_30d || 'N/A',
+        customerMM: q.customer_mm || '',
+        remarks: q.remarks || ''
+      }));
+      setQuickResponseData(typedQuickResponseData);
+
+      // 6. 공정불량 데이터 가져오기
+      const { data: pqData, error: pqError } = await supabase
+        .from('process_quality_data')
+        .select('*')
+        .order('data_date', { ascending: false });
+
+      if (pqError) {
+        console.warn("Process Quality Data Fetch Warning:", pqError.message);
+      }
+
+      const typedProcessQualityData = (pqData || []).map((p: any) => ({
+        id: p.id,
+        uploadId: p.upload_id,
+        customer: p.customer,
+        partType: p.part_type,
+        productionQty: Number(p.production_qty || 0),
+        defectQty: Number(p.defect_qty || 0),
+        defectAmount: Number(p.defect_amount || 0),
+        defectRate: Number(p.defect_rate || 0),
+        dataDate: p.data_date,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      }));
+      setProcessQualityData(typedProcessQualityData);
+
+      // 7. 공정불량 업로드 이력 가져오기
+      const { data: pqUploads, error: pqUploadError } = await supabase
+        .from('process_quality_uploads')
+        .select('*')
+        .order('upload_date', { ascending: false });
+
+      if (pqUploadError) {
+        console.warn("Process Quality Upload Fetch Warning:", pqUploadError.message);
+      }
+
+      const typedProcessQualityUploads = (pqUploads || []).map((u: any) => ({
+        id: u.id,
+        filename: u.filename,
+        recordCount: Number(u.record_count || 0),
+        uploadDate: u.upload_date,
+        createdAt: u.created_at
+      }));
+      setProcessQualityUploads(typedProcessQualityUploads);
+
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
       handleError(e, "데이터 초기화");
@@ -375,6 +485,91 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveOutgoingMetrics = async (payload: OutgoingMetric | OutgoingMetric[]) => {
+    try {
+      const metricsArray = Array.isArray(payload) ? payload : [payload];
+      const dbPayload = await Promise.all(metricsArray.map(async m => {
+        const { data: existing } = await supabase.from('outgoing_metrics').select('id').eq('year', m.year).eq('month', m.month).maybeSingle();
+        return { ...(existing?.id ? { id: existing.id } : {}), year: m.year, month: m.month, target: m.target, inspection_qty: m.inspectionQty, defects: m.defects, actual: m.actual };
+      }));
+      const { error } = await supabase.from('outgoing_metrics').upsert(dbPayload).select();
+      if (error) throw error;
+      await fetchAllData();
+      return true;
+    } catch (e: any) {
+      handleError(e, "출하품질 지표 저장");
+      return false;
+    }
+  };
+
+  const handleSaveQuickResponse = async (entry: QuickResponseEntry) => {
+    try {
+      const dbPayload = {
+        ...(entry.id ? { id: entry.id } : {}),
+        date: entry.date, department: entry.department, machine_no: entry.machineNo, defect_count: entry.defectCount, model: entry.model,
+        defect_type: entry.defectType, process: entry.process, defect_content: entry.defectContent, coating: entry.coating, area: entry.area,
+        material_code: entry.materialCode, shielding: entry.shielding, action: entry.action, material_manager: entry.materialManager,
+        meeting_attendance: entry.meetingAttendance, status_24h: entry.status24H, status_3d: entry.status3D, status_14day: entry.status14DAY,
+        status_24d: entry.status24D, status_25d: entry.status25D, status_30d: entry.status30D, customer_mm: entry.customerMM, remarks: entry.remarks
+      };
+      const { error } = await supabase.from('quick_response_entries').upsert(dbPayload);
+      if (error) throw error;
+      await fetchAllData();
+      alert('신속대응 데이터가 저장되었습니다.');
+    } catch (e: any) {
+      handleError(e, "신속대응 저장");
+    }
+  };
+
+  const handleDeleteQuickResponse = async (id: string) => {
+    if (!id) return;
+    try {
+      const { error } = await supabase.from('quick_response_entries').delete().eq('id', id);
+      if (error) throw error;
+      await fetchAllData();
+    } catch (e: any) {
+      handleError(e, "신속대응 삭제");
+    }
+  };
+
+  const handleUploadProcessQuality = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
+
+      const { data: uploadRecord, error: uploadError } = await supabase.from('process_quality_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      if (uploadError) throw uploadError;
+
+      const processedData = jsonData.map((row: any) => {
+        const productionQty = Number(row['생산수량'] || row['생산량'] || 0);
+        const defectQty = Number(row['불량수량'] || row['불량량'] || 0);
+        const defectRate = productionQty > 0 ? (defectQty / productionQty) * 100 : 0;
+        return {
+          upload_id: uploadRecord.id,
+          customer: String(row['고객사'] || row['거래처'] || ''),
+          part_type: String(row['부품유형'] || row['공정'] || ''),
+          production_qty: productionQty,
+          defect_qty: defectQty,
+          defect_amount: Number(row['불량금액'] || row['금액'] || 0),
+          defect_rate: defectRate,
+          data_date: row['일자'] || row['날짜'] || new Date().toISOString().split('T')[0]
+        };
+      });
+
+      const { error: dataError } = await supabase.from('process_quality_data').insert(processedData);
+      if (dataError) throw dataError;
+
+      await fetchAllData();
+      alert('✅ 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+    } catch (e: any) {
+      handleError(e, "공정불량 데이터 업로드");
+      throw e;
+    }
+  };
+
   // DB 설정 모달
   if (showConfigModal) {
     return (
@@ -488,8 +683,9 @@ const App: React.FC = () => {
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
             {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
-            {activeTab === 'process' && <ProcessQuality />}
-            {activeTab === 'outgoing' && <OutgoingQuality />}
+            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} isLoading={isLoading} />}
+            {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
+            {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
           </div>
         )}
       </main>
