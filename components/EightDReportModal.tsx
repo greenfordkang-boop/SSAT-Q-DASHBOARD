@@ -75,7 +75,7 @@ const EightDReportModal: React.FC<EightDReportModalProps> = ({ entry, onSave, on
     setIsGenerating(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
       const prompt = `품질 관리 전문가로서 다음 NCR에 대한 8D 리포트 초안을 JSON 형식으로 작성하십시오.
       고객: ${entry.customer}, 품명: ${entry.partName}, 불량: ${entry.defectContent}`;
