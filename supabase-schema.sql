@@ -185,6 +185,50 @@ CREATE TRIGGER update_quick_response_entries_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- 6. Process Quality Upload History 테이블 (공정품질 업로드 이력)
+CREATE TABLE IF NOT EXISTS process_quality_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  record_count INTEGER NOT NULL DEFAULT 0,
+  upload_date TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Process Quality Uploads 인덱스
+CREATE INDEX IF NOT EXISTS idx_pq_uploads_date ON process_quality_uploads(upload_date DESC);
+
+-- 7. Process Quality Data 테이블 (공정품질 불량 데이터)
+CREATE TABLE IF NOT EXISTS process_quality_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  upload_id UUID REFERENCES process_quality_uploads(id) ON DELETE CASCADE,
+  customer TEXT NOT NULL,
+  part_type TEXT NOT NULL,
+  production_qty INTEGER NOT NULL DEFAULT 0,
+  defect_qty INTEGER NOT NULL DEFAULT 0,
+  defect_amount NUMERIC NOT NULL DEFAULT 0,
+  defect_rate NUMERIC NOT NULL DEFAULT 0,
+  data_date DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Process Quality Data 인덱스
+CREATE INDEX IF NOT EXISTS idx_pq_data_customer ON process_quality_data(customer);
+CREATE INDEX IF NOT EXISTS idx_pq_data_part_type ON process_quality_data(part_type);
+CREATE INDEX IF NOT EXISTS idx_pq_data_date ON process_quality_data(data_date DESC);
+CREATE INDEX IF NOT EXISTS idx_pq_data_upload_id ON process_quality_data(upload_id);
+
+-- RLS 비활성화
+ALTER TABLE process_quality_uploads DISABLE ROW LEVEL SECURITY;
+ALTER TABLE process_quality_data DISABLE ROW LEVEL SECURITY;
+
+-- Process Quality Data 업데이트 트리거
+DROP TRIGGER IF EXISTS update_process_quality_data_updated_at ON process_quality_data;
+CREATE TRIGGER update_process_quality_data_updated_at
+  BEFORE UPDATE ON process_quality_data
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================
 -- 완료!
 -- ============================================

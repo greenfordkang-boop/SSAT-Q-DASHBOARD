@@ -149,3 +149,55 @@ export interface DashboardTab {
   id: 'overall' | 'ncr' | 'customer' | 'incoming' | 'process' | 'outgoing' | 'quickresponse';
   label: string;
 }
+
+// Process Quality Types
+export interface ProcessQualityUpload {
+  id?: string;
+  filename: string;
+  recordCount: number;
+  uploadDate: string;
+  createdAt?: string;
+}
+
+export interface ProcessQualityData {
+  id?: string;
+  uploadId: string;
+  customer: string;
+  partType: string; // 도장, 레이저, 사출, 인쇄, 조립, 증착
+  productionQty: number;
+  defectQty: number;
+  defectAmount: number;
+  defectRate: number;
+  dataDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProcessQualityKPI {
+  totalProduction: number;
+  totalDefects: number;
+  averageDefectRate: number;
+  totalDefectAmount: number;
+}
+
+export interface ProcessQualityByPartType {
+  partType: string;
+  totalProduction: number;
+  totalDefects: number;
+  defectRate: number;
+  totalAmount: number;
+}
+
+export interface ProcessQualityByCustomer {
+  customer: string;
+  totalProduction: number;
+  totalDefects: number;
+  defectRate: number;
+  totalAmount: number;
+}
+
+export interface ProcessQualityTimeSeries {
+  date: string;
+  defectRate: number;
+  totalAmount: number;
+}
