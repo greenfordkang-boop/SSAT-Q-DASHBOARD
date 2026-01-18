@@ -114,6 +114,126 @@ CREATE TRIGGER update_supplier_metrics_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- 5. Outgoing Metrics 테이블 (출하품질 지표)
+CREATE TABLE IF NOT EXISTS outgoing_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+  target NUMERIC NOT NULL DEFAULT 10,
+  inspection_qty INTEGER NOT NULL DEFAULT 0,
+  defects INTEGER NOT NULL DEFAULT 0,
+  actual NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- ⭐ 중복 방지를 위한 UNIQUE 제약조건
+  CONSTRAINT unique_outgoing_year_month UNIQUE (year, month)
+);
+
+-- Outgoing Metrics 인덱스
+CREATE INDEX IF NOT EXISTS idx_outgoing_metrics_year ON outgoing_metrics(year);
+CREATE INDEX IF NOT EXISTS idx_outgoing_metrics_month ON outgoing_metrics(month);
+
+-- Outgoing Metrics 업데이트 트리거
+DROP TRIGGER IF EXISTS update_outgoing_metrics_updated_at ON outgoing_metrics;
+CREATE TRIGGER update_outgoing_metrics_updated_at
+  BEFORE UPDATE ON outgoing_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Outgoing Metrics RLS 비활성화
+ALTER TABLE outgoing_metrics DISABLE ROW LEVEL SECURITY;
+
+-- 6. Quick Response Entries 테이블 (신속대응 추적)
+CREATE TABLE IF NOT EXISTS quick_response_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  date DATE NOT NULL,
+  department TEXT NOT NULL,
+  machine_no TEXT,
+  defect_count INTEGER NOT NULL DEFAULT 0,
+  model TEXT NOT NULL,
+  defect_type TEXT,
+  process TEXT,
+  defect_content TEXT,
+  coating TEXT,
+  area TEXT,
+  material_code TEXT,
+  shielding TEXT,
+  action TEXT,
+  material_manager TEXT,
+  meeting_attendance TEXT,
+  status_24h TEXT DEFAULT 'N/A',
+  status_3d TEXT DEFAULT 'N/A',
+  status_14day TEXT DEFAULT 'N/A',
+  status_24d TEXT DEFAULT 'N/A',
+  status_25d TEXT DEFAULT 'N/A',
+  status_30d TEXT DEFAULT 'N/A',
+  customer_mm TEXT,
+  remarks TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Quick Response Entries 인덱스
+CREATE INDEX IF NOT EXISTS idx_qr_entries_date ON quick_response_entries(date DESC);
+CREATE INDEX IF NOT EXISTS idx_qr_entries_department ON quick_response_entries(department);
+
+-- Quick Response Entries 업데이트 트리거
+DROP TRIGGER IF EXISTS update_qr_entries_updated_at ON quick_response_entries;
+CREATE TRIGGER update_qr_entries_updated_at
+  BEFORE UPDATE ON quick_response_entries
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Quick Response Entries RLS 비활성화
+ALTER TABLE quick_response_entries DISABLE ROW LEVEL SECURITY;
+
+-- 7. Process Quality Upload History 테이블 (공정품질 업로드 이력)
+CREATE TABLE IF NOT EXISTS process_quality_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  record_count INTEGER NOT NULL DEFAULT 0,
+  upload_date TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Process Quality Upload History 인덱스
+CREATE INDEX IF NOT EXISTS idx_pq_uploads_date ON process_quality_uploads(upload_date DESC);
+
+-- Process Quality Uploads RLS 비활성화
+ALTER TABLE process_quality_uploads DISABLE ROW LEVEL SECURITY;
+
+-- 8. Process Quality Data 테이블 (공정품질 불량 데이터)
+CREATE TABLE IF NOT EXISTS process_quality_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  upload_id UUID REFERENCES process_quality_uploads(id) ON DELETE CASCADE,
+  customer TEXT NOT NULL,
+  part_type TEXT NOT NULL,
+  production_qty INTEGER NOT NULL DEFAULT 0,
+  defect_qty INTEGER NOT NULL DEFAULT 0,
+  defect_amount NUMERIC NOT NULL DEFAULT 0,
+  defect_rate NUMERIC NOT NULL DEFAULT 0,
+  data_date DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Process Quality Data 인덱스
+CREATE INDEX IF NOT EXISTS idx_pq_data_upload ON process_quality_data(upload_id);
+CREATE INDEX IF NOT EXISTS idx_pq_data_customer ON process_quality_data(customer);
+CREATE INDEX IF NOT EXISTS idx_pq_data_part_type ON process_quality_data(part_type);
+CREATE INDEX IF NOT EXISTS idx_pq_data_date ON process_quality_data(data_date DESC);
+
+-- Process Quality Data 업데이트 트리거
+DROP TRIGGER IF EXISTS update_pq_data_updated_at ON process_quality_data;
+CREATE TRIGGER update_pq_data_updated_at
+  BEFORE UPDATE ON process_quality_data
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Process Quality Data RLS 비활성화
+ALTER TABLE process_quality_data DISABLE ROW LEVEL SECURITY;
+
 -- ============================================
 -- 완료!
 -- ============================================
