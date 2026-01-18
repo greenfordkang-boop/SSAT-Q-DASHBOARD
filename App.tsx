@@ -10,7 +10,9 @@ import IncomingQuality from './components/IncomingQuality';
 import ProcessQuality from './components/ProcessQuality';
 import OutgoingQuality from './components/OutgoingQuality';
 import QuickResponse from './components/QuickResponse';
+import DatabaseSetupScreen from './components/DatabaseSetupScreen';
 import { supabase, saveSupabaseConfig, resetSupabaseConfig } from './lib/supabaseClient';
+import { checkTableExists } from './lib/dbMigration';
 import * as XLSX from 'xlsx';
 
 const TABS: DashboardTab[] = [
@@ -47,11 +49,21 @@ const App: React.FC = () => {
   const [configUrl, setConfigUrl] = useState('');
   const [configKey, setConfigKey] = useState('');
 
+  // Database Setup State
+  const [needsDatabaseSetup, setNeedsDatabaseSetup] = useState(false);
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+
   useEffect(() => {
     // 로컬 스토리지에서 현재 설정값을 가져와 모달 초기값으로 설정
     const storedUrl = localStorage.getItem('supabase_url_v5'); // v5 key check
     const storedKey = localStorage.getItem('supabase_key_v5');
-    if (storedUrl) setConfigUrl(storedUrl);
+    if (storedUrl) {
+      setConfigUrl(storedUrl);
+      setSupabaseUrl(storedUrl);
+    } else {
+      // 기본 URL 사용
+      setSupabaseUrl('https://xjjsqyawvojybuyrehrr.supabase.co');
+    }
     if (storedKey) setConfigKey(storedKey);
 
     const authStatus = sessionStorage.getItem('isAuth');
@@ -161,6 +173,15 @@ const App: React.FC = () => {
   const fetchAllData = async () => {
     setIsLoading(true);
     try {
+      // 0. 데이터베이스 테이블 존재 여부 확인 (공정품질 테이블)
+      const processQualityTableExists = await checkTableExists(supabase, 'process_quality_uploads');
+      if (!processQualityTableExists) {
+        console.warn('⚠️ 공정품질 테이블이 존재하지 않습니다. 데이터베이스 설정이 필요합니다.');
+        setNeedsDatabaseSetup(true);
+        setIsLoading(false);
+        return;
+      }
+
       // 1. NCR 데이터 가져오기
       const { data: ncrEntries, error: ncrError } = await supabase
         .from('ncr_entries')
@@ -569,6 +590,22 @@ const App: React.FC = () => {
       throw e;
     }
   };
+
+  // DB 초기 설정 화면
+  if (needsDatabaseSetup && isAuthenticated) {
+    return (
+      <DatabaseSetupScreen
+        supabaseUrl={supabaseUrl}
+        onSetupComplete={() => {
+          setNeedsDatabaseSetup(false);
+          fetchAllData();
+        }}
+        onSkip={() => {
+          setNeedsDatabaseSetup(false);
+        }}
+      />
+    );
+  }
 
   // DB 설정 모달
   if (showConfigModal) {
