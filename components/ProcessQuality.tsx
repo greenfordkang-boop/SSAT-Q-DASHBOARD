@@ -25,7 +25,10 @@ const PART_TYPE_COLORS: Record<string, string> = {
   "인쇄": "#f59e0b",
   "조립": "#10b981",
   "증착": "#06b6d4",
+  "도금": "#f97316",
 };
+
+const PART_TYPE_ORDER = ["사출", "도장", "인쇄", "조립", "도금", "레이저", "증착"];
 
 export default function ProcessQuality({ data, uploads, onUpload, isLoading }: ProcessQualityProps) {
   const [showUpload, setShowUpload] = useState(false);
@@ -78,7 +81,7 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
-    })).sort((a, b) => b.totalAmount - a.totalAmount);
+    })).sort((a, b) => b.defectRate - a.defectRate);
   }, [data]);
 
   const vehicleModelData: ProcessQualityByVehicleModel[] = useMemo(() => {
@@ -96,7 +99,7 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
-    })).sort((a, b) => b.totalAmount - a.totalAmount);
+    })).sort((a, b) => b.defectRate - a.defectRate);
   }, [data]);
 
   const productNameData: ProcessQualityByProductName[] = useMemo(() => {
@@ -114,7 +117,7 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
-    })).sort((a, b) => b.totalAmount - a.totalAmount);
+    })).sort((a, b) => b.defectRate - a.defectRate);
   }, [data]);
 
   const timeSeriesData: ProcessQualityTimeSeries[] = useMemo(() => {
@@ -138,12 +141,23 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [data]);
 
-  const chartData = useMemo(() => partTypeData.map(item => ({
-    name: item.partType,
-    불량률: parseFloat(item.defectRate.toFixed(2)),
-    불량수량: item.totalDefects,
-    생산수량: item.totalProduction,
-  })), [partTypeData]);
+  const chartData = useMemo(() => {
+    const mapped = partTypeData.map(item => ({
+      name: item.partType,
+      불량률: parseFloat(item.defectRate.toFixed(2)),
+      불량수량: item.totalDefects,
+      생산수량: item.totalProduction,
+    }));
+    // Sort by PART_TYPE_ORDER
+    return mapped.sort((a, b) => {
+      const indexA = PART_TYPE_ORDER.indexOf(a.name);
+      const indexB = PART_TYPE_ORDER.indexOf(b.name);
+      // If not in order list, put at end
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+  }, [partTypeData]);
 
   const timeSeriesChartData = useMemo(() => timeSeriesData.map(item => ({
     date: item.date,
