@@ -608,7 +608,9 @@ const App: React.FC = () => {
           defect_qty: defectQty,
           defect_amount: safeNumber(findColumnValue(row, '불량금액', '금액') || 0),
           defect_rate: defectRate,
-          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
       });
 
