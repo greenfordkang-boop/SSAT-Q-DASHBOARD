@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import type {
   ProcessQualityData,
   ProcessQualityUpload,
@@ -36,6 +36,8 @@ const PART_TYPE_COLORS: Record<string, string> = {
 };
 
 const PART_TYPE_ORDER = ["사출", "도장", "인쇄", "조립", "도금", "레이저", "증착"];
+
+const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316', '#ef4444', '#6366f1', '#14b8a6'];
 
 export default function ProcessQuality({ data, uploads, onUpload, defectTypeData, defectTypeUploads, onUploadDefectType, isLoading }: ProcessQualityProps) {
   const [showUpload, setShowUpload] = useState(false);
@@ -500,7 +502,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex justify-between items-center mb-6 border-b border-slate-200">
           <div className="flex gap-4">
-            <button onClick={() => setActiveTab('partType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'partType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>부품유형별 분석</button>
+            <button onClick={() => setActiveTab('partType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'partType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>공정별 분석</button>
             <button onClick={() => setActiveTab('timeSeries')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'timeSeries' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>추이 분석</button>
             <button onClick={() => setActiveTab('defectType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'defectType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>불량유형 분석</button>
           </div>
@@ -513,8 +515,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         </div>
         {activeTab === 'partType' && (
           <div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">부품유형별 불량률</h3>
-            <p className="text-sm text-slate-600 mb-6">각 부품유형의 불량률을 비교합니다</p>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">공정별 불량률</h3>
+            <p className="text-sm text-slate-600 mb-6">각 공정의 불량률을 비교합니다</p>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
@@ -554,17 +556,31 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             {defectTypeData && defectTypeData.length > 0 ? (
               <>
                 <h3 className="text-lg font-bold text-slate-900 mb-2">불량유형별 분석 현황</h3>
-                <p className="text-sm text-slate-600 mb-6">각 불량유형의 발생 빈도를 분석합니다</p>
+                <p className="text-sm text-red-600 mb-1 font-semibold">불량유형,불량수량,수율을 집계 필요없음</p>
+                <p className="text-sm text-red-600 mb-6 font-semibold">불량유형만 전체에서 차지하는 비율을 파이차트로 표현</p>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={defectTypeAnalysis.slice(0, 10)}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="defectType" stroke="#64748b" />
-                      <YAxis stroke="#64748b" />
-                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <PieChart>
+                      <Pie
+                        data={defectTypeAnalysis.slice(0, 10)}
+                        dataKey="percentage"
+                        nameKey="defectType"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={120}
+                        label={(entry) => `${entry.defectType}: ${entry.percentage.toFixed(1)}%`}
+                        labelLine={true}
+                      >
+                        {defectTypeAnalysis.slice(0, 10).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        formatter={(value: any, name: string, props: any) => [`${props.payload.count}건 (${Number(value).toFixed(2)}%)`, '점유율']}
+                      />
                       <Legend />
-                      <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="불량 건수" />
-                    </BarChart>
+                    </PieChart>
                   </ResponsiveContainer>
                 </div>
               </>
@@ -646,6 +662,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900 mb-4">품명별 불량 현황</h3>
+        <p className="text-sm text-slate-600 mb-2">불량률 0.1% 이하는 표시하지 않음</p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -658,7 +675,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
               </tr>
             </thead>
             <tbody>
-              {productNameData.map((product, index) => (
+              {productNameData.filter(product => product.defectRate > 0.1).map((product, index) => (
                 <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm font-medium text-slate-900">{product.productName}</td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
