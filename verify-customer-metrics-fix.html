@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Metrics Updated_at 컬럼 검증 도구</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 800px;
+      width: 100%;
+      padding: 40px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 900;
+      color: #1e293b;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+    .config-section {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: all 0.3s;
+    }
+    input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    button {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .results {
+      margin-top: 30px;
+    }
+    .result-box {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .result-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-success {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    .status-error {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    .status-warning {
+      background: #fef3c7;
+      color: #d97706;
+    }
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .instruction-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .instruction-box h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 12px;
+    }
+    .instruction-box ol {
+      margin-left: 20px;
+      color: #1e40af;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Customer Metrics Updated_at 검증 도구</h1>
+    <p class="subtitle">고객 품질 지표 테이블의 updated_at 컬럼 존재 여부를 확인합니다</p>
+
+    <div class="instruction-box">
+      <h3>📋 사용 방법</h3>
+      <ol>
+        <li>아래에 Supabase URL과 API Key를 입력하세요</li>
+        <li>"검증 시작" 버튼을 클릭하세요</li>
+        <li>결과를 확인하고, 문제가 있다면 fix-customer-metrics-updated-at.sql을 실행하세요</li>
+      </ol>
+    </div>
+
+    <div class="config-section">
+      <label>Supabase URL</label>
+      <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co" />
+
+      <label>Supabase Anon Key</label>
+      <input type="password" id="supabaseKey" placeholder="your-anon-key" />
+    </div>
+
+    <button id="verifyBtn" onclick="verifyTable()">검증 시작</button>
+
+    <div id="results" class="results" style="display: none;"></div>
+  </div>
+
+  <script>
+    async function verifyTable() {
+      const urlInput = document.getElementById('supabaseUrl');
+      const keyInput = document.getElementById('supabaseKey');
+      const resultsDiv = document.getElementById('results');
+      const btn = document.getElementById('verifyBtn');
+
+      const url = urlInput.value.trim();
+      const key = keyInput.value.trim();
+
+      if (!url || !key) {
+        alert('Supabase URL과 API Key를 모두 입력해주세요.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '검증 중...';
+      resultsDiv.style.display = 'none';
+
+      try {
+        const supabase = window.supabase.createClient(url, key);
+
+        // Test 1: Check if table exists and can be queried
+        const { data: tableData, error: tableError } = await supabase
+          .from('customer_metrics')
+          .select('*')
+          .limit(1);
+
+        let html = '<h2 style="font-size: 20px; font-weight: 900; color: #1e293b; margin-bottom: 20px;">검증 결과</h2>';
+
+        // Test 1 Result
+        html += '<div class="result-box">';
+        html += '<div class="result-title">1. 테이블 접근 테스트';
+        if (tableError) {
+          html += '<span class="status-badge status-error">실패</span>';
+          html += '</div>';
+          html += `<p style="color: #dc2626; font-size: 13px; margin-top: 8px;">오류: ${tableError.message}</p>`;
+        } else {
+          html += '<span class="status-badge status-success">성공</span>';
+          html += '</div>';
+          html += '<p style="color: #16a34a; font-size: 13px; margin-top: 8px;">customer_metrics 테이블에 정상적으로 접근할 수 있습니다.</p>';
+        }
+        html += '</div>';
+
+        // Test 2: Try to insert a test record with updated_at
+        html += '<div class="result-box">';
+        html += '<div class="result-title">2. updated_at 컬럼 테스트';
+
+        const testRecord = {
+          year: 2099,
+          customer: '_TEST_VERIFY_',
+          month: 13,
+          target: 0,
+          inspection_qty: 0,
+          defects: 0,
+          actual: 0
+        };
+
+        const { data: insertData, error: insertError } = await supabase
+          .from('customer_metrics')
+          .insert(testRecord)
+          .select();
+
+        if (insertError) {
+          if (insertError.message.includes('updated_at') || insertError.message.includes('schema cache')) {
+            html += '<span class="status-badge status-error">실패</span>';
+            html += '</div>';
+            html += '<p style="color: #dc2626; font-size: 13px; margin-top: 8px; font-weight: 700;">❌ updated_at 컬럼이 존재하지 않습니다!</p>';
+            html += `<p style="color: #64748b; font-size: 12px; margin-top: 8px;">오류 메시지: ${insertError.message}</p>`;
+            html += '<div style="background: #fef3c7; padding: 16px; border-radius: 12px; margin-top: 16px; border-left: 4px solid #d97706;">';
+            html += '<p style="color: #92400e; font-size: 13px; font-weight: 700; margin-bottom: 8px;">🔧 해결 방법:</p>';
+            html += '<p style="color: #92400e; font-size: 12px;">1. fix-customer-metrics-updated-at.sql 파일을 여세요</p>';
+            html += '<p style="color: #92400e; font-size: 12px;">2. Supabase Dashboard → SQL Editor로 이동하세요</p>';
+            html += '<p style="color: #92400e; font-size: 12px;">3. SQL 스크립트를 복사하여 실행하세요</p>';
+            html += '<p style="color: #92400e; font-size: 12px;">4. 다시 이 검증 도구를 실행하세요</p>';
+            html += '</div>';
+          } else {
+            html += '<span class="status-badge status-warning">경고</span>';
+            html += '</div>';
+            html += `<p style="color: #d97706; font-size: 13px; margin-top: 8px;">다른 오류가 발생했습니다: ${insertError.message}</p>`;
+          }
+        } else {
+          html += '<span class="status-badge status-success">성공</span>';
+          html += '</div>';
+          html += '<p style="color: #16a34a; font-size: 13px; margin-top: 8px;">✅ updated_at 컬럼이 정상적으로 작동합니다!</p>';
+
+          if (insertData && insertData[0]) {
+            html += '<pre>' + JSON.stringify(insertData[0], null, 2) + '</pre>';
+          }
+
+          // Clean up test record
+          await supabase
+            .from('customer_metrics')
+            .delete()
+            .eq('customer', '_TEST_VERIFY_')
+            .eq('year', 2099);
+        }
+        html += '</div>';
+
+        // Test 3: Check trigger existence
+        html += '<div class="result-box">';
+        html += '<div class="result-title">3. 트리거 확인 (정보용)</div>';
+        html += '<p style="color: #64748b; font-size: 13px; margin-top: 8px;">트리거는 Supabase SQL Editor에서 직접 확인해야 합니다:</p>';
+        html += '<pre style="margin-top: 12px;">SELECT trigger_name, event_manipulation\nFROM information_schema.triggers\nWHERE event_object_table = \'customer_metrics\';</pre>';
+        html += '</div>';
+
+        resultsDiv.innerHTML = html;
+        resultsDiv.style.display = 'block';
+
+      } catch (e) {
+        resultsDiv.innerHTML = `
+          <div class="result-box">
+            <div class="result-title">
+              오류 발생
+              <span class="status-badge status-error">실패</span>
+            </div>
+            <p style="color: #dc2626; font-size: 13px; margin-top: 8px;">${e.message}</p>
+          </div>
+        `;
+        resultsDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '검증 시작';
+      }
+    }
+  </script>
+</body>
+</html>
