@@ -216,3 +216,55 @@ export interface DashboardTab {
   id: 'overall' | 'ncr' | 'customer' | 'incoming' | 'process' | 'outgoing' | 'quickresponse';
   label: string;
 }
+
+// Process Defect Type Interfaces
+export interface ProcessDefectTypeUpload {
+  id?: string;
+  filename: string;
+  recordCount: number;
+  uploadDate: string;
+  createdAt?: string;
+}
+
+export interface ProcessDefectTypeData {
+  id?: string;
+  uploadId: string;
+  customer?: string;
+  partCode?: string;
+  partName?: string;
+  process?: string;
+  vehicleModel?: string;
+  defectType1: number;
+  defectType2: number;
+  defectType3: number;
+  defectType4: number;
+  defectType5: number;
+  defectType6: number;
+  defectType7: number;
+  defectType8: number;
+  defectType9: number;
+  defectType10: number;
+  defectTypesDetail?: Record<string, number>;
+  totalDefects: number;
+  dataDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DefectTypeAnalysis {
+  defectType: string;
+  count: number;
+  percentage: number;
+}
+
+export interface DefectTypeByProcess {
+  process: string;
+  totalDefects: number;
+  defectTypes: DefectTypeAnalysis[];
+}
+
+export interface DefectTypeByCustomer {
+  customer: string;
+  totalDefects: number;
+  defectTypes: DefectTypeAnalysis[];
+}

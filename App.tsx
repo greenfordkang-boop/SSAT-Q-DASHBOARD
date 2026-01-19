@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -37,6 +37,8 @@ const App: React.FC = () => {
   const [quickResponseData, setQuickResponseData] = useState<QuickResponseEntry[]>([]);
   const [processQualityData, setProcessQualityData] = useState<ProcessQualityData[]>([]);
   const [processQualityUploads, setProcessQualityUploads] = useState<ProcessQualityUpload[]>([]);
+  const [processDefectTypeData, setProcessDefectTypeData] = useState<ProcessDefectTypeData[]>([]);
+  const [processDefectTypeUploads, setProcessDefectTypeUploads] = useState<ProcessDefectTypeUpload[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -363,6 +365,61 @@ const App: React.FC = () => {
       }));
       setProcessQualityUploads(typedProcessQualityUploads);
 
+      // 8. 공정불량유형 데이터 가져오기
+      const { data: pdtData, error: pdtError } = await supabase
+        .from('process_defect_type_data')
+        .select('*')
+        .order('data_date', { ascending: false });
+
+      if (pdtError) {
+        console.warn("Process Defect Type Data Fetch Warning:", pdtError.message);
+      }
+
+      const typedProcessDefectTypeData = (pdtData || []).map((p: any) => ({
+        id: p.id,
+        uploadId: p.upload_id,
+        customer: p.customer,
+        partCode: p.part_code,
+        partName: p.part_name,
+        process: p.process,
+        vehicleModel: p.vehicle_model,
+        defectType1: Number(p.defect_type_1 || 0),
+        defectType2: Number(p.defect_type_2 || 0),
+        defectType3: Number(p.defect_type_3 || 0),
+        defectType4: Number(p.defect_type_4 || 0),
+        defectType5: Number(p.defect_type_5 || 0),
+        defectType6: Number(p.defect_type_6 || 0),
+        defectType7: Number(p.defect_type_7 || 0),
+        defectType8: Number(p.defect_type_8 || 0),
+        defectType9: Number(p.defect_type_9 || 0),
+        defectType10: Number(p.defect_type_10 || 0),
+        defectTypesDetail: p.defect_types_detail || {},
+        totalDefects: Number(p.total_defects || 0),
+        dataDate: p.data_date,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      }));
+      setProcessDefectTypeData(typedProcessDefectTypeData);
+
+      // 9. 공정불량유형 업로드 이력 가져오기
+      const { data: pdtUploads, error: pdtUploadError } = await supabase
+        .from('process_defect_type_uploads')
+        .select('*')
+        .order('upload_date', { ascending: false });
+
+      if (pdtUploadError) {
+        console.warn("Process Defect Type Upload Fetch Warning:", pdtUploadError.message);
+      }
+
+      const typedProcessDefectTypeUploads = (pdtUploads || []).map((u: any) => ({
+        id: u.id,
+        filename: u.filename,
+        recordCount: Number(u.record_count || 0),
+        uploadDate: u.upload_date,
+        createdAt: u.created_at
+      }));
+      setProcessDefectTypeUploads(typedProcessDefectTypeUploads);
+
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
       handleError(e, "데이터 초기화");
@@ -643,6 +700,106 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUploadProcessDefectType = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
+
+      // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteUploadsError } = await supabase.from('process_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteUploadsError) throw deleteUploadsError;
+
+      const { data: uploadRecord, error: uploadError } = await supabase.from('process_defect_type_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      if (uploadError) throw uploadError;
+
+      // Helper function to safely convert to number, defaulting to 0 if NaN
+      const safeNumber = (value: any): number => {
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+      };
+
+      // Helper function to find column value with flexible matching
+      const findColumnValue = (row: any, ...possibleNames: string[]): any => {
+        for (const name of possibleNames) {
+          if (row[name] !== undefined) return row[name];
+        }
+        const keys = Object.keys(row);
+        for (const name of possibleNames) {
+          const normalizedName = name.replace(/\[.*?\]/g, '').trim();
+          for (const key of keys) {
+            const normalizedKey = key.replace(/\[.*?\]/g, '').trim();
+            if (normalizedKey === normalizedName) return row[key];
+          }
+        }
+        return undefined;
+      };
+
+      const processedData = jsonData.map((row: any) => {
+        // Extract defect type columns (find all numeric columns)
+        const defectTypes: Record<string, number> = {};
+        let defectType1 = 0, defectType2 = 0, defectType3 = 0, defectType4 = 0, defectType5 = 0;
+        let defectType6 = 0, defectType7 = 0, defectType8 = 0, defectType9 = 0, defectType10 = 0;
+
+        // Try to find common defect type column patterns
+        Object.keys(row).forEach((key, index) => {
+          const value = safeNumber(row[key]);
+          // Store all numeric columns as potential defect types
+          if (!isNaN(value) && value > 0 && !key.includes('수량') && !key.includes('금액')) {
+            defectTypes[key] = value;
+            // Map first 10 defect types to dedicated columns
+            if (index === 0 || key.includes('1') || key.includes('저속')) defectType1 = value;
+            else if (index === 1 || key.includes('2') || key.includes('고속')) defectType2 = value;
+            else if (index === 2 || key.includes('3')) defectType3 = value;
+            else if (index === 3 || key.includes('4')) defectType4 = value;
+            else if (index === 4 || key.includes('5')) defectType5 = value;
+            else if (index === 5 || key.includes('6')) defectType6 = value;
+            else if (index === 6 || key.includes('7')) defectType7 = value;
+            else if (index === 7 || key.includes('8')) defectType8 = value;
+            else if (index === 8 || key.includes('9')) defectType9 = value;
+            else if (index === 9 || key.includes('10')) defectType10 = value;
+          }
+        });
+
+        const totalDefects = defectType1 + defectType2 + defectType3 + defectType4 + defectType5 +
+                            defectType6 + defectType7 + defectType8 + defectType9 + defectType10;
+
+        return {
+          upload_id: uploadRecord.id,
+          customer: findColumnValue(row, '고객사', '거래처', '사원') || null,
+          part_code: findColumnValue(row, '품번', '부품번호', '자재번호') || null,
+          part_name: findColumnValue(row, '품명', '부품명', '제품명') || null,
+          process: findColumnValue(row, '공정', '공정명') || null,
+          vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
+          defect_type_1: defectType1,
+          defect_type_2: defectType2,
+          defect_type_3: defectType3,
+          defect_type_4: defectType4,
+          defect_type_5: defectType5,
+          defect_type_6: defectType6,
+          defect_type_7: defectType7,
+          defect_type_8: defectType8,
+          defect_type_9: defectType9,
+          defect_type_10: defectType10,
+          defect_types_detail: defectTypes,
+          total_defects: totalDefects,
+          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+        };
+      });
+
+      const { error: dataError } = await supabase.from('process_defect_type_data').insert(processedData);
+      if (dataError) throw dataError;
+
+      await fetchAllData();
+      alert('✅ 불량유형 데이터 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+    } catch (e: any) {
+      handleError(e, "공정불량유형 데이터 업로드");
+      throw e;
+    }
+  };
+
   // DB 초기 설정 화면
   if (needsDatabaseSetup && isAuthenticated) {
     return (
@@ -772,7 +929,7 @@ const App: React.FC = () => {
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
             {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
-            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} isLoading={isLoading} />}
+            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} defectTypeData={processDefectTypeData} defectTypeUploads={processDefectTypeUploads} onUploadDefectType={handleUploadProcessDefectType} isLoading={isLoading} />}
             {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
             {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
           </div>
