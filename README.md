@@ -72,6 +72,26 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Troubleshooting
 
+### Error: "record 'new' has no field 'updated_at'" or "Could not find the 'updated_at' column"
+
+This error occurs when database triggers for automatically updating timestamps haven't been properly configured.
+
+**Quick Fix:**
+1. Open [verify-triggers.html](verify-triggers.html) in your browser
+2. Enter your Supabase credentials
+3. Click "Check Triggers" to diagnose the issue
+4. Follow the on-screen instructions to fix the problem
+
+**Manual Fix:**
+1. Go to your Supabase dashboard → SQL Editor
+2. Copy the contents of `fix-updated-at-triggers.sql`
+3. Paste and run the SQL script
+4. Try saving data again
+
+**Alternative Fix:**
+1. Re-run the complete `supabase-schema.sql` script
+2. This will recreate all triggers and ensure everything is up to date
+
 ### Error: "Could not find the table in the schema cache"
 
 This means the database schema hasn't been applied yet. See [SETUP.md](SETUP.md) for instructions.
@@ -91,8 +111,10 @@ This means the database schema hasn't been applied yet. See [SETUP.md](SETUP.md)
 ## Documentation
 
 - [SETUP.md](SETUP.md) - Detailed database setup guide
-- [supabase-schema.sql](supabase-schema.sql) - Database schema
-- [verify-database.html](verify-database.html) - Database verification tool
+- [supabase-schema.sql](supabase-schema.sql) - Complete database schema
+- [fix-updated-at-triggers.sql](fix-updated-at-triggers.sql) - Fix for updated_at trigger errors
+- [verify-database.html](verify-database.html) - Database table verification tool
+- [verify-triggers.html](verify-triggers.html) - Database trigger verification tool
 
 ## Tech Stack
 
@@ -122,6 +144,8 @@ For issues and questions:
 1. Check [SETUP.md](SETUP.md) for common problems
 2. Review the browser console for error messages
 3. Verify database tables exist using `verify-database.html`
+4. Check database triggers using `verify-triggers.html`
+5. Run `fix-updated-at-triggers.sql` if you see timestamp-related errors
 
 ## License
 

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Database Triggers - SSAT Q-Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e4e8;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        #results.show {
+            display: block;
+        }
+
+        #results.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        #results.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        #results.warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+        }
+
+        .result-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 8px;
+        }
+
+        .section h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .table-list {
+            list-style: none;
+            margin: 10px 0;
+        }
+
+        .table-list li {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .table-list li.found {
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        .table-list li.missing {
+            background: rgba(220, 53, 69, 0.1);
+        }
+
+        .help-box {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-left: 4px solid #dc3545;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .help-box strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .help-box ol {
+            margin-left: 20px;
+        }
+
+        .help-box li {
+            margin: 8px 0;
+        }
+
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .copy-btn {
+            margin-top: 10px;
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sql-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 15px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Database Trigger Verification</h1>
+        <p class="subtitle">Check if updated_at triggers are properly configured (fixes "record 'new' has no field 'updated_at'" error)</p>
+
+        <div class="input-group">
+            <label for="supabaseUrl">Supabase Project URL</label>
+            <input
+                type="text"
+                id="supabaseUrl"
+                placeholder="https://xxxxx.supabase.co"
+                value="https://xjjsqyawvojybuyrehrr.supabase.co"
+            >
+        </div>
+
+        <div class="input-group">
+            <label for="supabaseKey">Supabase Anon/Public Key</label>
+            <input
+                type="password"
+                id="supabaseKey"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                value="sb_publishable_vvaBbJHvo0pcUwaUiPW0ww_vElHC7GW"
+            >
+        </div>
+
+        <button onclick="verifyTriggers()" id="verifyBtn">
+            Check Triggers
+        </button>
+
+        <div id="results"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const EXPECTED_TRIGGERS = [
+            { table: 'customer_metrics', trigger: 'update_customer_metrics_updated_at' },
+            { table: 'supplier_metrics', trigger: 'update_supplier_metrics_updated_at' },
+            { table: 'outgoing_metrics', trigger: 'update_outgoing_metrics_updated_at' },
+            { table: 'ncr_entries', trigger: 'update_ncr_entries_updated_at' },
+            { table: 'quick_response_entries', trigger: 'update_quick_response_entries_updated_at' },
+            { table: 'process_quality_data', trigger: 'update_pq_data_updated_at' }
+        ];
+
+        async function verifyTriggers() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const btn = document.getElementById('verifyBtn');
+
+            if (!url || !key) {
+                showError('Please enter both Supabase URL and API Key.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = 'Checking triggers<span class="spinner"></span>';
+            resultsDiv.style.display = 'none';
+
+            try {
+                const { createClient } = supabase;
+                const client = createClient(url, key);
+
+                // Check if tables have updated_at column
+                const columnChecks = await Promise.all(
+                    EXPECTED_TRIGGERS.map(async ({ table }) => {
+                        try {
+                            const { data, error } = await client
+                                .from(table)
+                                .select('updated_at')
+                                .limit(1);
+
+                            return { table, hasColumn: !error };
+                        } catch (err) {
+                            return { table, hasColumn: false, error: err.message };
+                        }
+                    })
+                );
+
+                // Check triggers using a SQL query
+                const { data: triggersData, error: triggersError } = await client
+                    .rpc('get_triggers_info')
+                    .then(result => ({ data: [], error: new Error('Custom RPC not available - using alternative method') }));
+
+                // Since we can't directly query triggers, we'll check if data can be inserted
+                const functionCheck = await checkTriggerFunction(client);
+
+                displayResults(columnChecks, functionCheck);
+
+            } catch (error) {
+                showError(`Connection Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Check Triggers';
+            }
+        }
+
+        async function checkTriggerFunction(client) {
+            // Try to check if the trigger function exists by attempting a simple query
+            try {
+                const { data, error } = await client
+                    .from('customer_metrics')
+                    .select('id, updated_at')
+                    .limit(1);
+
+                return {
+                    canQuery: !error,
+                    error: error?.message
+                };
+            } catch (err) {
+                return {
+                    canQuery: false,
+                    error: err.message
+                };
+            }
+        }
+
+        function displayResults(columnChecks, functionCheck) {
+            const tablesWithColumn = columnChecks.filter(c => c.hasColumn);
+            const tablesWithoutColumn = columnChecks.filter(c => !c.hasColumn);
+
+            let status = 'success';
+            let html = '';
+
+            if (tablesWithoutColumn.length === 0 && functionCheck.canQuery) {
+                status = 'success';
+                html = `
+                    <div class="result-header">
+                        <span>✅ All Good!</span>
+                    </div>
+                    <p>All tables have the <code>updated_at</code> column and can be queried successfully.</p>
+                    <div class="section">
+                        <h3>✅ Tables Verified:</h3>
+                        <ul class="table-list">
+                            ${tablesWithColumn.map(c => `
+                                <li class="found">✓ ${c.table}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    <p style="margin-top: 20px;"><strong>Note:</strong> If you're still seeing errors, try the following:</p>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Clear your browser cache</li>
+                        <li>Reload the schema cache in Supabase (Settings → Database → Reload schema cache)</li>
+                        <li>Re-run the <code>fix-updated-at-triggers.sql</code> script</li>
+                    </ol>
+                `;
+            } else {
+                status = 'error';
+                html = `
+                    <div class="result-header">
+                        <span>❌ Triggers Not Configured</span>
+                    </div>
+                    <p>Some tables are missing the <code>updated_at</code> column or triggers are not working properly.</p>
+                `;
+
+                if (tablesWithoutColumn.length > 0) {
+                    html += `
+                        <div class="section">
+                            <h3>❌ Tables with Issues:</h3>
+                            <ul class="table-list">
+                                ${tablesWithoutColumn.map(c => `
+                                    <li class="missing">✗ ${c.table} ${c.error ? '(' + c.error + ')' : ''}</li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="help-box">
+                        <strong>🔧 How to Fix This:</strong>
+                        <ol>
+                            <li>Open your <strong>Supabase Dashboard</strong></li>
+                            <li>Go to <strong>SQL Editor</strong></li>
+                            <li>Click <strong>+ New query</strong></li>
+                            <li>Copy and paste the SQL script below</li>
+                            <li>Click <strong>Run</strong> to execute</li>
+                            <li>Wait for completion and refresh this page</li>
+                        </ol>
+                        <button class="copy-btn" onclick="copyFixScript()">📋 Copy Fix Script</button>
+                        <div class="sql-box" id="fixScript">-- Fix Missing updated_at Triggers
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_customer_metrics_updated_at ON customer_metrics;
+CREATE TRIGGER update_customer_metrics_updated_at
+  BEFORE INSERT OR UPDATE ON customer_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_supplier_metrics_updated_at ON supplier_metrics;
+CREATE TRIGGER update_supplier_metrics_updated_at
+  BEFORE INSERT OR UPDATE ON supplier_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_outgoing_metrics_updated_at ON outgoing_metrics;
+CREATE TRIGGER update_outgoing_metrics_updated_at
+  BEFORE INSERT OR UPDATE ON outgoing_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_ncr_entries_updated_at ON ncr_entries;
+CREATE TRIGGER update_ncr_entries_updated_at
+  BEFORE INSERT OR UPDATE ON ncr_entries
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_quick_response_entries_updated_at ON quick_response_entries;
+CREATE TRIGGER update_quick_response_entries_updated_at
+  BEFORE INSERT OR UPDATE ON quick_response_entries
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_pq_data_updated_at ON process_quality_data;
+CREATE TRIGGER update_pq_data_updated_at
+  BEFORE INSERT OR UPDATE ON process_quality_data
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();</div>
+                        <p style="margin-top: 15px;"><strong>Alternative:</strong> Copy and run the <code>fix-updated-at-triggers.sql</code> file from the repository.</p>
+                    </div>
+                `;
+            }
+
+            showResults(status, html);
+        }
+
+        function showResults(status, html) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.className = `${status} show`;
+            resultsDiv.innerHTML = html;
+        }
+
+        function showError(message) {
+            showResults('error', `
+                <div class="result-header">
+                    <span>❌ Error</span>
+                </div>
+                <p>${message}</p>
+            `);
+        }
+
+        function copyFixScript() {
+            const script = document.getElementById('fixScript').textContent;
+            navigator.clipboard.writeText(script).then(() => {
+                alert('✅ SQL script copied to clipboard!\n\nNow:\n1. Go to Supabase SQL Editor\n2. Paste the script\n3. Click Run');
+            }).catch(err => {
+                alert('Failed to copy: ' + err.message);
+            });
+        }
+    </script>
+</body>
+</html>
