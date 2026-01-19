@@ -112,6 +112,27 @@ The defect rate is automatically calculated: `(defect_qty / production_qty) * 10
 
 ## Troubleshooting
 
+### "record 'new' has no field 'updated_at'" or "Could not find the 'updated_at' column"
+
+This error means the database triggers for auto-updating timestamps are missing or not properly configured.
+
+**Solution:**
+1. Open `verify-triggers.html` in your browser to diagnose the issue
+2. Go to Supabase SQL Editor
+3. Copy and run the `fix-updated-at-triggers.sql` script
+4. Alternatively, re-run the complete `supabase-schema.sql` script
+
+**Quick Fix via Supabase:**
+1. Go to your Supabase dashboard → SQL Editor
+2. Run this query to verify triggers exist:
+   ```sql
+   SELECT trigger_name, event_object_table
+   FROM information_schema.triggers
+   WHERE trigger_schema = 'public'
+   ORDER BY event_object_table;
+   ```
+3. If no triggers are listed, run the `fix-updated-at-triggers.sql` script
+
 ### "Could not find the table 'public.process_quality_uploads'"
 
 **Solution:** You haven't applied the database schema yet. Follow Step 2 above.
