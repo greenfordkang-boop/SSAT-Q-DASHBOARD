@@ -119,6 +119,13 @@ const App: React.FC = () => {
       return;
     }
 
+    // Updated_at Column Missing Error Check (🚨 고객품질 저장 오류)
+    if (error?.message?.includes('updated_at') &&
+        (error?.message?.includes('has no field') || error?.message?.includes('column'))) {
+      alert(`🚨 데이터베이스 설정 오류: updated_at 컬럼이 누락되었습니다.\n\n해결 방법:\n1. 프로젝트 폴더에서 "CRITICAL-FIX-updated-at.sql" 파일 열기\n2. 내용 전체 복사\n3. Supabase SQL Editor에 붙여넣기 후 실행\n4. "모든 수정이 완료되었습니다" 메시지 확인\n5. 이 페이지를 새로고침하고 다시 시도\n\n자세한 안내: FIX-INSTRUCTIONS.md 파일 참조\n\n에러: ${error.message}`);
+      return;
+    }
+
     // Table Not Found Error Check
     if (error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
       alert(`오류: 데이터베이스 테이블을 찾을 수 없습니다.\n\nSupabase SQL Editor에서 테이블 생성 스크립트를 실행했는지 확인해주세요.\n(${error.message})`);
