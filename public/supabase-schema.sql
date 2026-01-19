@@ -96,21 +96,21 @@ $$ language 'plpgsql';
 -- NCR Entries 업데이트 트리거
 DROP TRIGGER IF EXISTS update_ncr_entries_updated_at ON ncr_entries;
 CREATE TRIGGER update_ncr_entries_updated_at
-  BEFORE UPDATE ON ncr_entries
+  BEFORE INSERT OR UPDATE ON ncr_entries
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Customer Metrics 업데이트 트리거
 DROP TRIGGER IF EXISTS update_customer_metrics_updated_at ON customer_metrics;
 CREATE TRIGGER update_customer_metrics_updated_at
-  BEFORE UPDATE ON customer_metrics
+  BEFORE INSERT OR UPDATE ON customer_metrics
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Supplier Metrics 업데이트 트리거
 DROP TRIGGER IF EXISTS update_supplier_metrics_updated_at ON supplier_metrics;
 CREATE TRIGGER update_supplier_metrics_updated_at
-  BEFORE UPDATE ON supplier_metrics
+  BEFORE INSERT OR UPDATE ON supplier_metrics
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
@@ -137,7 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_outgoing_metrics_month ON outgoing_metrics(month)
 -- Outgoing Metrics 업데이트 트리거
 DROP TRIGGER IF EXISTS update_outgoing_metrics_updated_at ON outgoing_metrics;
 CREATE TRIGGER update_outgoing_metrics_updated_at
-  BEFORE UPDATE ON outgoing_metrics
+  BEFORE INSERT OR UPDATE ON outgoing_metrics
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
@@ -181,7 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_qr_entries_department ON quick_response_entries(d
 -- Quick Response Entries 업데이트 트리거
 DROP TRIGGER IF EXISTS update_qr_entries_updated_at ON quick_response_entries;
 CREATE TRIGGER update_qr_entries_updated_at
-  BEFORE UPDATE ON quick_response_entries
+  BEFORE INSERT OR UPDATE ON quick_response_entries
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
@@ -231,7 +231,7 @@ CREATE INDEX IF NOT EXISTS idx_pq_data_date ON process_quality_data(data_date DE
 -- Process Quality Data 업데이트 트리거
 DROP TRIGGER IF EXISTS update_pq_data_updated_at ON process_quality_data;
 CREATE TRIGGER update_pq_data_updated_at
-  BEFORE UPDATE ON process_quality_data
+  BEFORE INSERT OR UPDATE ON process_quality_data
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 

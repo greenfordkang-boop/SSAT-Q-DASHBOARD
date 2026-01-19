@@ -182,7 +182,7 @@ $$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS update_pq_data_updated_at ON process_quality_data;
 CREATE TRIGGER update_pq_data_updated_at
-  BEFORE UPDATE ON process_quality_data
+  BEFORE INSERT OR UPDATE ON process_quality_data
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 `;
