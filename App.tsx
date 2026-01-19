@@ -368,28 +368,41 @@ const App: React.FC = () => {
     try {
       const metricsArray = Array.isArray(payload) ? payload : [payload];
 
-      const dbPayload = metricsArray.map(m => ({
-        year: m.year,
-        month: m.month,
-        customer: m.customer,
-        target: m.target,
-        inspection_qty: m.inspectionQty,
-        defects: m.defects,
-        actual: m.actual
+      // 기존 데이터 조회하여 id 매핑
+      const dbPayload = await Promise.all(metricsArray.map(async m => {
+        // 기존 레코드 검색 (maybeSingle: 없으면 null 반환, 에러 안남)
+        const { data: existing } = await supabase
+          .from('customer_metrics')
+          .select('id')
+          .eq('customer', m.customer)
+          .eq('year', m.year)
+          .eq('month', m.month)
+          .maybeSingle();
+
+        return {
+          ...(existing?.id ? { id: existing.id } : {}),
+          year: m.year,
+          month: m.month,
+          customer: m.customer,
+          target: m.target,
+          inspection_qty: m.inspectionQty,
+          defects: m.defects,
+          actual: m.actual
+        };
       }));
 
-      console.log("전송 데이터 상세:", dbPayload);
+      console.log("고객품질 지표 전송 데이터:", dbPayload);
 
       const { data, error } = await supabase
         .from('customer_metrics')
-        .upsert(dbPayload, { onConflict: 'customer,year,month' })
+        .upsert(dbPayload)
         .select();
 
       if (error) {
         throw error;
       }
 
-      console.log("서버 응답 결과:", data);
+      console.log("고객품질 지표 저장 성공:", data);
       await fetchAllData();
       return true;
 
