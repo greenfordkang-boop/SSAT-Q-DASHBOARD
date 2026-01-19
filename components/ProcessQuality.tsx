@@ -8,13 +8,20 @@ import type {
   ProcessQualityByCustomer,
   ProcessQualityByVehicleModel,
   ProcessQualityByProductName,
-  ProcessQualityTimeSeries
+  ProcessQualityTimeSeries,
+  ProcessDefectTypeData,
+  ProcessDefectTypeUpload,
+  DefectTypeAnalysis,
+  DefectTypeByProcess
 } from '../types';
 
 interface ProcessQualityProps {
   data: ProcessQualityData[];
   uploads: ProcessQualityUpload[];
   onUpload: (file: File) => Promise<void>;
+  defectTypeData: ProcessDefectTypeData[];
+  defectTypeUploads: ProcessDefectTypeUpload[];
+  onUploadDefectType: (file: File) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -30,12 +37,16 @@ const PART_TYPE_COLORS: Record<string, string> = {
 
 const PART_TYPE_ORDER = ["사출", "도장", "인쇄", "조립", "도금", "레이저", "증착"];
 
-export default function ProcessQuality({ data, uploads, onUpload, isLoading }: ProcessQualityProps) {
+export default function ProcessQuality({ data, uploads, onUpload, defectTypeData, defectTypeUploads, onUploadDefectType, isLoading }: ProcessQualityProps) {
   const [showUpload, setShowUpload] = useState(false);
+  const [showDefectTypeUpload, setShowDefectTypeUpload] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingDefectType, setIsDraggingDefectType] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [defectTypeFile, setDefectTypeFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries'>('partType');
+  const [uploadingDefectType, setUploadingDefectType] = useState(false);
+  const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries' | 'defectType'>('partType');
 
   const hasData = data && data.length > 0;
 
@@ -165,6 +176,80 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
     불량금액: item.totalAmount,
   })), [timeSeriesData]);
 
+  // Defect Type Analysis
+  const defectTypeAnalysis: DefectTypeAnalysis[] = useMemo(() => {
+    if (!defectTypeData || defectTypeData.length === 0) return [];
+
+    const totals: Record<string, number> = {};
+    let grandTotal = 0;
+
+    defectTypeData.forEach(item => {
+      // Count defect types from defectType1 to defectType10
+      for (let i = 1; i <= 10; i++) {
+        const key = `defectType${i}` as keyof ProcessDefectTypeData;
+        const value = Number(item[key]) || 0;
+        if (value > 0) {
+          const typeName = `불량유형 ${i}`;
+          totals[typeName] = (totals[typeName] || 0) + value;
+          grandTotal += value;
+        }
+      }
+
+      // Also check defectTypesDetail
+      if (item.defectTypesDetail) {
+        Object.entries(item.defectTypesDetail).forEach(([type, count]) => {
+          if (count > 0) {
+            totals[type] = (totals[type] || 0) + count;
+            grandTotal += count;
+          }
+        });
+      }
+    });
+
+    return Object.entries(totals)
+      .map(([defectType, count]) => ({
+        defectType,
+        count,
+        percentage: grandTotal > 0 ? (count / grandTotal) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [defectTypeData]);
+
+  const defectTypeByProcess: DefectTypeByProcess[] = useMemo(() => {
+    if (!defectTypeData || defectTypeData.length === 0) return [];
+
+    const grouped: Record<string, Record<string, number>> = {};
+
+    defectTypeData.forEach(item => {
+      const process = item.process || '미분류';
+      if (!grouped[process]) grouped[process] = {};
+
+      for (let i = 1; i <= 10; i++) {
+        const key = `defectType${i}` as keyof ProcessDefectTypeData;
+        const value = Number(item[key]) || 0;
+        if (value > 0) {
+          const typeName = `불량유형 ${i}`;
+          grouped[process][typeName] = (grouped[process][typeName] || 0) + value;
+        }
+      }
+    });
+
+    return Object.entries(grouped).map(([process, types]) => {
+      const totalDefects = Object.values(types).reduce((sum, count) => sum + count, 0);
+      return {
+        process,
+        totalDefects,
+        defectTypes: Object.entries(types)
+          .map(([defectType, count]) => ({
+            defectType,
+            count,
+            percentage: totalDefects > 0 ? (count / totalDefects) * 100 : 0
+          }))
+          .sort((a, b) => b.count - a.count)
+      };
+    }).sort((a, b) => b.totalDefects - a.totalDefects);
+  }, [defectTypeData]);
+
   const formatNumber = (num: number) => new Intl.NumberFormat('ko-KR').format(num);
   const formatCurrency = (num: number) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(num);
 
@@ -199,6 +284,39 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
       setUploading(false);
     }
   }, [file, onUpload]);
+
+  // Defect Type Upload Handlers
+  const handleDragOverDefectType = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingDefectType(true); }, []);
+  const handleDragLeaveDefectType = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingDefectType(false); }, []);
+  const handleDropDefectType = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingDefectType(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls'))) {
+      setDefectTypeFile(droppedFile);
+    } else {
+      alert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+    }
+  }, []);
+
+  const handleFileSelectDefectType = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) setDefectTypeFile(selectedFile);
+  }, []);
+
+  const handleUploadDefectType = useCallback(async () => {
+    if (!defectTypeFile) return;
+    setUploadingDefectType(true);
+    try {
+      await onUploadDefectType(defectTypeFile);
+      setDefectTypeFile(null);
+      setShowDefectTypeUpload(false);
+    } catch (error: any) {
+      alert('업로드 실패: ' + (error.message || '알 수 없는 오류'));
+    } finally {
+      setUploadingDefectType(false);
+    }
+  }, [defectTypeFile, onUploadDefectType]);
 
   if (!hasData) {
     return (
@@ -380,11 +498,20 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
         </div>
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex gap-4 mb-6 border-b border-slate-200">
-          <button onClick={() => setActiveTab('partType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'partType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>부품유형별 분석</button>
-          <button onClick={() => setActiveTab('timeSeries')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'timeSeries' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>추이 분석</button>
+        <div className="flex justify-between items-center mb-6 border-b border-slate-200">
+          <div className="flex gap-4">
+            <button onClick={() => setActiveTab('partType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'partType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>부품유형별 분석</button>
+            <button onClick={() => setActiveTab('timeSeries')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'timeSeries' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>추이 분석</button>
+            <button onClick={() => setActiveTab('defectType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'defectType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>불량유형 분석</button>
+          </div>
+          {activeTab === 'defectType' && (
+            <button onClick={() => setShowDefectTypeUpload(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+              불량유형 파일 업로드
+            </button>
+          )}
         </div>
-        {activeTab === 'partType' ? (
+        {activeTab === 'partType' && (
           <div>
             <h3 className="text-lg font-bold text-slate-900 mb-2">부품유형별 불량률</h3>
             <p className="text-sm text-slate-600 mb-6">각 부품유형의 불량률을 비교합니다</p>
@@ -403,7 +530,8 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
               </ResponsiveContainer>
             </div>
           </div>
-        ) : (
+        )}
+        {activeTab === 'timeSeries' && (
           <div>
             <h3 className="text-lg font-bold text-slate-900 mb-2">불량률 추이</h3>
             <p className="text-sm text-slate-600 mb-6">시간에 따른 불량률 변화를 확인합니다</p>
@@ -419,6 +547,42 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
                 </LineChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        )}
+        {activeTab === 'defectType' && (
+          <div>
+            {defectTypeData && defectTypeData.length > 0 ? (
+              <>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">불량유형별 분석 현황</h3>
+                <p className="text-sm text-slate-600 mb-6">각 불량유형의 발생 빈도를 분석합니다</p>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={defectTypeAnalysis.slice(0, 10)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="defectType" stroke="#64748b" />
+                      <YAxis stroke="#64748b" />
+                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                      <Legend />
+                      <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="불량 건수" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">불량유형 데이터가 없습니다</h3>
+                <p className="text-slate-600 mb-4">불량유형 파일을 업로드하여 분석을 시작하세요</p>
+                <button onClick={() => setShowDefectTypeUpload(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold flex items-center gap-2 mx-auto">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                  파일 업로드
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -532,6 +696,158 @@ export default function ProcessQuality({ data, uploads, onUpload, isLoading }: P
           </table>
         </div>
       </div>
+
+      {/* Defect Type Analysis Sections */}
+      {defectTypeData && defectTypeData.length > 0 && (
+        <>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">공정별 불량유형 분석</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">공정</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">총 불량 건수</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">주요 불량유형 (상위 3개)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {defectTypeByProcess.map((process, index) => (
+                    <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{process.process}</td>
+                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(process.totalDefects)}</td>
+                      <td className="py-3 px-4 text-sm text-slate-700">
+                        {process.defectTypes.slice(0, 3).map((dt, idx) => (
+                          <span key={idx} className="inline-block mr-3">
+                            {dt.defectType}: <span className="font-semibold text-purple-600">{formatNumber(dt.count)}</span> ({dt.percentage.toFixed(1)}%)
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형별 상세 현황</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">불량유형</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">발생 건수</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">비율</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {defectTypeAnalysis.map((type, index) => (
+                    <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{type.defectType}</td>
+                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(type.count)}</td>
+                      <td className="py-3 px-4 text-sm text-right">
+                        <span className="font-semibold text-purple-600">{type.percentage.toFixed(2)}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형 업로드 이력</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">파일명</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">레코드 수</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">업로드 일시</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {defectTypeUploads.map((upload, index) => (
+                    <tr key={upload.id || index} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{upload.filename}</td>
+                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(upload.recordCount)}</td>
+                      <td className="py-3 px-4 text-sm text-right text-slate-700">{new Date(upload.uploadDate).toLocaleString('ko-KR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Defect Type Upload Modal */}
+      {showDefectTypeUpload && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">불량유형 파일 업로드</h2>
+              <button onClick={() => { setShowDefectTypeUpload(false); setDefectTypeFile(null); }} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div onDragOver={handleDragOverDefectType} onDragLeave={handleDragLeaveDefectType} onDrop={handleDropDefectType} className={'border-2 border-dashed rounded-xl p-12 text-center transition-all mb-6 ' + (isDraggingDefectType ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-slate-50')}>
+              <div className="flex flex-col items-center gap-4">
+                {defectTypeFile ? (
+                  <>
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900">{defectTypeFile.name}</p>
+                      <p className="text-sm text-slate-500">{(defectTypeFile.size / 1024).toFixed(2)} KB</p>
+                    </div>
+                    <button onClick={() => setDefectTypeFile(null)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">다른 파일 선택</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900 mb-1">파일을 드래그하거나 클릭하여 선택하세요</p>
+                      <p className="text-sm text-slate-500">엑셀 파일(.xlsx, .xls)만 지원됩니다</p>
+                    </div>
+                    <label htmlFor="defect-type-file-input">
+                      <button onClick={() => document.getElementById('defect-type-file-input')?.click()} className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        파일 선택
+                      </button>
+                    </label>
+                    <input id="defect-type-file-input" type="file" accept=".xlsx,.xls" onChange={handleFileSelectDefectType} className="hidden" />
+                  </>
+                )}
+              </div>
+            </div>
+            {defectTypeFile && (
+              <div className="flex gap-3">
+                <button onClick={() => { setShowDefectTypeUpload(false); setDefectTypeFile(null); }} className="flex-1 px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold">
+                  취소
+                </button>
+                <button onClick={handleUploadDefectType} disabled={uploadingDefectType} className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {uploadingDefectType ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      업로드 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                      업로드
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
