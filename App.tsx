@@ -375,7 +375,8 @@ const App: React.FC = () => {
         target: m.target,
         inspection_qty: m.inspectionQty,
         defects: m.defects,
-        actual: m.actual
+        actual: m.actual,
+        updated_at: new Date().toISOString()
       }));
 
       console.log("전송 데이터 상세:", dbPayload);
@@ -423,7 +424,8 @@ const App: React.FC = () => {
           incoming_qty: m.incomingQty,
           inspection_qty: m.inspectionQty,
           defects: m.defects,
-          actual: m.actual
+          actual: m.actual,
+          updated_at: new Date().toISOString()
         };
       }));
 
@@ -457,7 +459,8 @@ const App: React.FC = () => {
         defect_content: entry.defectContent, root_cause: entry.rootCause, countermeasure: entry.countermeasure,
         plan_date: entry.planDate, result_date: entry.resultDate,
         status: entry.status, progress_rate: entry.progressRate,
-        attachments: entry.attachments || [], eight_d_data: entry.eightDData
+        attachments: entry.attachments || [], eight_d_data: entry.eightDData,
+        updated_at: new Date().toISOString()
       };
       
       const { error } = await supabase.from('ncr_entries').upsert(dbPayload);
@@ -486,7 +489,8 @@ const App: React.FC = () => {
         defect_content: merged.defectContent, root_cause: merged.rootCause, countermeasure: merged.countermeasure,
         plan_date: merged.planDate, result_date: merged.resultDate,
         status: merged.status, progress_rate: merged.progressRate,
-        attachments: merged.attachments || [], eight_d_data: merged.eightDData
+        attachments: merged.attachments || [], eight_d_data: merged.eightDData,
+        updated_at: new Date().toISOString()
       };
 
       const { error } = await supabase.from('ncr_entries').upsert(dbPayload);
@@ -513,7 +517,7 @@ const App: React.FC = () => {
       const metricsArray = Array.isArray(payload) ? payload : [payload];
       const dbPayload = await Promise.all(metricsArray.map(async m => {
         const { data: existing } = await supabase.from('outgoing_metrics').select('id').eq('year', m.year).eq('month', m.month).maybeSingle();
-        return { ...(existing?.id ? { id: existing.id } : {}), year: m.year, month: m.month, target: m.target, inspection_qty: m.inspectionQty, defects: m.defects, actual: m.actual };
+        return { ...(existing?.id ? { id: existing.id } : {}), year: m.year, month: m.month, target: m.target, inspection_qty: m.inspectionQty, defects: m.defects, actual: m.actual, updated_at: new Date().toISOString() };
       }));
       const { error } = await supabase.from('outgoing_metrics').upsert(dbPayload).select();
       if (error) throw error;
@@ -533,7 +537,8 @@ const App: React.FC = () => {
         defect_type: entry.defectType, process: entry.process, defect_content: entry.defectContent, coating: entry.coating, area: entry.area,
         material_code: entry.materialCode, shielding: entry.shielding, action: entry.action, material_manager: entry.materialManager,
         meeting_attendance: entry.meetingAttendance, status_24h: entry.status24H, status_3d: entry.status3D, status_14day: entry.status14DAY,
-        status_24d: entry.status24D, status_25d: entry.status25D, status_30d: entry.status30D, customer_mm: entry.customerMM, remarks: entry.remarks
+        status_24d: entry.status24D, status_25d: entry.status25D, status_30d: entry.status30D, customer_mm: entry.customerMM, remarks: entry.remarks,
+        updated_at: new Date().toISOString()
       };
       const { error } = await supabase.from('quick_response_entries').upsert(dbPayload);
       if (error) throw error;
@@ -742,7 +747,7 @@ const App: React.FC = () => {
           <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>
         ) : (
           <div className="space-y-6">
-            {activeTab === 'overall' && <Dashboard ncrData={ncrData} customerMetrics={customerMetrics} supplierMetrics={supplierMetrics} />}
+            {activeTab === 'overall' && <Dashboard ncrData={ncrData} customerMetrics={customerMetrics} supplierMetrics={supplierMetrics} processQualityData={processQualityData} outgoingMetrics={outgoingMetrics} />}
             {activeTab === 'ncr' && (
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">

@@ -1,14 +1,16 @@
 
 import React, { useMemo } from 'react';
-import { NCREntry, CustomerMetric, SupplierMetric } from '../types';
+import { NCREntry, CustomerMetric, SupplierMetric, ProcessQualityData, OutgoingMetric } from '../types';
 
 interface DashboardProps {
   ncrData: NCREntry[];
   customerMetrics: CustomerMetric[];
   supplierMetrics: SupplierMetric[];
+  processQualityData: ProcessQualityData[];
+  outgoingMetrics: OutgoingMetric[];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplierMetrics }) => {
+const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplierMetrics, processQualityData, outgoingMetrics }) => {
   // NCR 통계
   const ncrStats = useMemo(() => {
     const total = ncrData.length;
@@ -46,6 +48,35 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
 
     return { totalIncoming, totalInspection, totalDefects, avgPpm, avgTarget, achievement };
   }, [supplierMetrics]);
+
+  // 공정품질 통계
+  const processQualityStats = useMemo(() => {
+    const totalProduction = processQualityData.reduce((sum, d) => sum + d.productionQty, 0);
+    const totalDefects = processQualityData.reduce((sum, d) => sum + d.defectQty, 0);
+    const totalAmount = processQualityData.reduce((sum, d) => sum + d.defectAmount, 0);
+    const avgDefectRate = totalProduction > 0 ? ((totalDefects / totalProduction) * 100) : 0;
+
+    return {
+      totalProduction,
+      totalDefects,
+      totalAmount,
+      avgDefectRate: Number(avgDefectRate.toFixed(2))
+    };
+  }, [processQualityData]);
+
+  // 출하품질 통계 (2026년 기준)
+  const outgoingStats = useMemo(() => {
+    const currentYear = 2026;
+    const yearData = outgoingMetrics.filter(m => m.year === currentYear);
+
+    const totalInspection = yearData.reduce((sum, m) => sum + m.inspectionQty, 0);
+    const totalDefects = yearData.reduce((sum, m) => sum + m.defects, 0);
+    const avgPpm = totalInspection > 0 ? Math.round((totalDefects / totalInspection) * 1000000) : 0;
+    const avgTarget = yearData.length > 0 ? Math.round(yearData.reduce((sum, m) => sum + m.target, 0) / yearData.length) : 10;
+    const achievement = avgTarget > 0 ? Math.min(100, Math.round((1 - avgPpm / avgTarget) * 100)) : 0;
+
+    return { totalInspection, totalDefects, avgPpm, avgTarget, achievement };
+  }, [outgoingMetrics]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -160,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         </div>
       </div>
 
-      {/* 4. 공정품질 (준비 중) */}
+      {/* 4. 공정품질 (사출 / 도장 / 조립) */}
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
         <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
           <svg className="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -169,15 +200,36 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
           </svg>
           4. 공정품질 (사출 / 도장 / 조립)
         </h3>
-        <div className="bg-slate-50 p-12 rounded-2xl border border-slate-200 text-center">
-          <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+        {processQualityData.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">생산수량</p>
+              <p className="text-3xl font-bold text-slate-900">{processQualityStats.totalProduction.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">불량수량</p>
+              <p className="text-3xl font-bold text-slate-900">{processQualityStats.totalDefects.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">불량금액</p>
+              <p className="text-3xl font-bold text-slate-900">{processQualityStats.totalAmount.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">평균 불량률</p>
+              <p className="text-3xl font-bold text-slate-900">{processQualityStats.avgDefectRate}%</p>
+            </div>
           </div>
-          <h4 className="font-bold text-slate-900 text-xl mb-2">데이터 준비 중</h4>
-          <p className="text-slate-500 text-sm">공정품질 지표 데이터 입력 기능을 개발 중입니다.</p>
-        </div>
+        ) : (
+          <div className="bg-slate-50 p-12 rounded-2xl border border-slate-200 text-center">
+            <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <h4 className="font-bold text-slate-900 text-xl mb-2">데이터 없음</h4>
+            <p className="text-slate-500 text-sm">공정품질 탭에서 엑셀 파일을 업로드하세요.</p>
+          </div>
+        )}
       </div>
 
       {/* 5. 출하품질 */}
@@ -186,17 +238,45 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
           <svg className="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
           </svg>
-          5. 출하품질
+          5. 출하품질 (2026년)
         </h3>
-        <div className="bg-slate-50 p-12 rounded-2xl border border-slate-200 text-center">
-          <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+        {outgoingMetrics.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">검사수량</p>
+              <p className="text-3xl font-bold text-slate-900">{outgoingStats.totalInspection.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">불량수</p>
+              <p className="text-3xl font-bold text-slate-900">{outgoingStats.totalDefects.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">실적 PPM</p>
+              <p className="text-3xl font-bold text-slate-900">{outgoingStats.avgPpm.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">목표 PPM</p>
+              <p className="text-3xl font-bold text-slate-900">{outgoingStats.avgTarget.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-2">달성률</p>
+              <p className="text-3xl font-bold text-slate-900">{outgoingStats.achievement}%</p>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mt-2">
+                <div className="bg-slate-900 h-full transition-all duration-500" style={{width: `${Math.min(100, outgoingStats.achievement)}%`}}></div>
+              </div>
+            </div>
           </div>
-          <h4 className="font-bold text-slate-900 text-xl mb-2">데이터 준비 중</h4>
-          <p className="text-slate-500 text-sm">출하품질 지표 데이터 입력 기능을 개발 중입니다.</p>
-        </div>
+        ) : (
+          <div className="bg-slate-50 p-12 rounded-2xl border border-slate-200 text-center">
+            <div className="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <h4 className="font-bold text-slate-900 text-xl mb-2">데이터 없음</h4>
+            <p className="text-slate-500 text-sm">출하품질 탭에서 지표를 입력하세요.</p>
+          </div>
+        )}
       </div>
     </div>
   );
