@@ -375,8 +375,7 @@ const App: React.FC = () => {
         target: m.target,
         inspection_qty: m.inspectionQty,
         defects: m.defects,
-        actual: m.actual,
-        updated_at: new Date().toISOString()
+        actual: m.actual
       }));
 
       console.log("전송 데이터 상세:", dbPayload);
@@ -424,8 +423,7 @@ const App: React.FC = () => {
           incoming_qty: m.incomingQty,
           inspection_qty: m.inspectionQty,
           defects: m.defects,
-          actual: m.actual,
-          updated_at: new Date().toISOString()
+          actual: m.actual
         };
       }));
 
@@ -459,8 +457,7 @@ const App: React.FC = () => {
         defect_content: entry.defectContent, root_cause: entry.rootCause, countermeasure: entry.countermeasure,
         plan_date: entry.planDate, result_date: entry.resultDate,
         status: entry.status, progress_rate: entry.progressRate,
-        attachments: entry.attachments || [], eight_d_data: entry.eightDData,
-        updated_at: new Date().toISOString()
+        attachments: entry.attachments || [], eight_d_data: entry.eightDData
       };
       
       const { error } = await supabase.from('ncr_entries').upsert(dbPayload);
@@ -489,8 +486,7 @@ const App: React.FC = () => {
         defect_content: merged.defectContent, root_cause: merged.rootCause, countermeasure: merged.countermeasure,
         plan_date: merged.planDate, result_date: merged.resultDate,
         status: merged.status, progress_rate: merged.progressRate,
-        attachments: merged.attachments || [], eight_d_data: merged.eightDData,
-        updated_at: new Date().toISOString()
+        attachments: merged.attachments || [], eight_d_data: merged.eightDData
       };
 
       const { error } = await supabase.from('ncr_entries').upsert(dbPayload);
@@ -517,7 +513,7 @@ const App: React.FC = () => {
       const metricsArray = Array.isArray(payload) ? payload : [payload];
       const dbPayload = await Promise.all(metricsArray.map(async m => {
         const { data: existing } = await supabase.from('outgoing_metrics').select('id').eq('year', m.year).eq('month', m.month).maybeSingle();
-        return { ...(existing?.id ? { id: existing.id } : {}), year: m.year, month: m.month, target: m.target, inspection_qty: m.inspectionQty, defects: m.defects, actual: m.actual, updated_at: new Date().toISOString() };
+        return { ...(existing?.id ? { id: existing.id } : {}), year: m.year, month: m.month, target: m.target, inspection_qty: m.inspectionQty, defects: m.defects, actual: m.actual };
       }));
       const { error } = await supabase.from('outgoing_metrics').upsert(dbPayload).select();
       if (error) throw error;
@@ -537,8 +533,7 @@ const App: React.FC = () => {
         defect_type: entry.defectType, process: entry.process, defect_content: entry.defectContent, coating: entry.coating, area: entry.area,
         material_code: entry.materialCode, shielding: entry.shielding, action: entry.action, material_manager: entry.materialManager,
         meeting_attendance: entry.meetingAttendance, status_24h: entry.status24H, status_3d: entry.status3D, status_14day: entry.status14DAY,
-        status_24d: entry.status24D, status_25d: entry.status25D, status_30d: entry.status30D, customer_mm: entry.customerMM, remarks: entry.remarks,
-        updated_at: new Date().toISOString()
+        status_24d: entry.status24D, status_25d: entry.status25D, status_30d: entry.status30D, customer_mm: entry.customerMM, remarks: entry.remarks
       };
       const { error } = await supabase.from('quick_response_entries').upsert(dbPayload);
       if (error) throw error;
@@ -613,9 +608,7 @@ const App: React.FC = () => {
           defect_qty: defectQty,
           defect_amount: safeNumber(findColumnValue(row, '불량금액', '금액') || 0),
           defect_rate: defectRate,
-          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
         };
       });
 
