@@ -601,14 +601,14 @@ const App: React.FC = () => {
         return {
           upload_id: uploadRecord.id,
           customer: String(findColumnValue(row, '고객사', '거래처') || ''),
-          part_type: String(findColumnValue(row, '부품유형', '공정') || ''),
-          vehicle_model: findColumnValue(row, '차종', '모델') || null,
-          product_name: findColumnValue(row, '품명', '제품명') || null,
+          part_type: String(findColumnValue(row, '공정', '공정구분', '부품유형') || ''),
+          vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
+          product_name: findColumnValue(row, '품목명', '품명', '제품명') || null,
           production_qty: productionQty,
           defect_qty: defectQty,
           defect_amount: safeNumber(findColumnValue(row, '불량금액', '금액') || 0),
           defect_rate: defectRate,
-          data_date: findColumnValue(row, '일자', '날짜') || new Date().toISOString().split('T')[0]
+          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
         };
       });
 
