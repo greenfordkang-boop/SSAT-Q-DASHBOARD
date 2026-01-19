@@ -133,6 +133,44 @@ This error means the database triggers for auto-updating timestamps are missing 
    ```
 3. If no triggers are listed, run the `fix-updated-at-triggers.sql` script
 
+### "Could not find the 'updated_at' column of 'customer_metrics' in the schema cache" (고객품질 등록 오류)
+
+This specific error occurs when the `customer_metrics` table is missing the `updated_at` column. This typically happens if the table was created before the full schema was applied.
+
+**Solution:**
+1. **Verify the issue:**
+   - Open `verify-customer-metrics-fix.html` in your browser
+   - Enter your Supabase URL and API Key
+   - Click "검증 시작" to check if the column exists
+
+2. **Apply the fix:**
+   - Go to Supabase Dashboard → SQL Editor
+   - Copy and run the `fix-customer-metrics-updated-at.sql` script
+   - This will safely add the missing `updated_at` and `created_at` columns
+   - The script will also ensure triggers are properly configured
+
+3. **Verify the fix worked:**
+   - Run the verification tool again (`verify-customer-metrics-fix.html`)
+   - Or try registering customer quality data again in the app
+
+**Quick Manual Fix:**
+```sql
+-- Add missing columns
+ALTER TABLE customer_metrics ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE customer_metrics ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Update existing rows
+UPDATE customer_metrics SET updated_at = NOW() WHERE updated_at IS NULL;
+UPDATE customer_metrics SET created_at = NOW() WHERE created_at IS NULL;
+
+-- Recreate trigger
+DROP TRIGGER IF EXISTS update_customer_metrics_updated_at ON customer_metrics;
+CREATE TRIGGER update_customer_metrics_updated_at
+  BEFORE INSERT OR UPDATE ON customer_metrics
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
 ### "Could not find the table 'public.process_quality_uploads'"
 
 **Solution:** You haven't applied the database schema yet. Follow Step 2 above.
