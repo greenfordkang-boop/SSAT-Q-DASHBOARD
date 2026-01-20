@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import type {
   ProcessQualityData,
   ProcessQualityUpload,
@@ -555,32 +555,70 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           <div>
             {defectTypeData && defectTypeData.length > 0 ? (
               <>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">불량유형별 분석 현황</h3>
-                <p className="text-sm text-red-600 mb-1 font-semibold">불량유형,불량수량,수율을 집계 필요없음</p>
-                <p className="text-sm text-red-600 mb-6 font-semibold">불량유형만 전체에서 차지하는 비율을 파이차트로 표현</p>
-                <div className="h-80">
+                <h3 className="text-lg font-bold text-slate-900 mb-6">불량유형별 분석 현황</h3>
+                <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={defectTypeAnalysis.slice(0, 10)}
-                        dataKey="percentage"
-                        nameKey="defectType"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={120}
-                        label={(entry) => `${entry.defectType}: ${entry.percentage.toFixed(1)}%`}
-                        labelLine={true}
-                      >
-                        {defectTypeAnalysis.slice(0, 10).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
+                    <ComposedChart
+                      data={(() => {
+                        const top10 = defectTypeAnalysis.slice(0, 10);
+                        let cumulative = 0;
+                        return top10.map(item => {
+                          cumulative += item.percentage;
+                          return {
+                            ...item,
+                            cumulativePercentage: cumulative
+                          };
+                        });
+                      })()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="defectType"
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        orientation="left"
+                        label={{ value: '불량 수량 (건)', angle: -90, position: 'insideLeft', style: { fill: '#64748b' } }}
+                        tick={{ fill: '#64748b' }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        domain={[0, 100]}
+                        label={{ value: '누적 비율 (%)', angle: 90, position: 'insideRight', style: { fill: '#64748b' } }}
+                        tick={{ fill: '#64748b' }}
+                      />
                       <Tooltip
                         contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: any, name: string, props: any) => [`${props.payload.count}건 (${Number(value).toFixed(2)}%)`, '점유율']}
+                        formatter={(value: any, name: string) => {
+                          if (name === '불량 수량') return [`${value}건`, name];
+                          if (name === '누적 비율') return [`${Number(value).toFixed(1)}%`, name];
+                          return [value, name];
+                        }}
                       />
-                      <Legend />
-                    </PieChart>
+                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="count"
+                        name="불량 수량"
+                        fill="#8b5cf6"
+                        radius={[8, 8, 0, 0]}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="cumulativePercentage"
+                        name="누적 비율"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        dot={{ fill: '#ef4444', r: 4 }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </>
