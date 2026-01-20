@@ -296,6 +296,122 @@ CREATE TRIGGER update_pdt_data_updated_at
 -- Process Defect Type Data RLS 비활성화
 ALTER TABLE process_defect_type_data DISABLE ROW LEVEL SECURITY;
 
+-- 11. Painting Defect Type Upload History 테이블 (도장불량유형 업로드 이력)
+CREATE TABLE IF NOT EXISTS painting_defect_type_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  record_count INTEGER NOT NULL DEFAULT 0,
+  upload_date TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Painting Defect Type Upload History 인덱스
+CREATE INDEX IF NOT EXISTS idx_painting_uploads_date ON painting_defect_type_uploads(upload_date DESC);
+
+-- Painting Defect Type Uploads RLS 비활성화
+ALTER TABLE painting_defect_type_uploads DISABLE ROW LEVEL SECURITY;
+
+-- 12. Painting Defect Type Data 테이블 (도장불량유형 상세 데이터)
+CREATE TABLE IF NOT EXISTS painting_defect_type_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  upload_id UUID REFERENCES painting_defect_type_uploads(id) ON DELETE CASCADE,
+  customer TEXT,
+  part_code TEXT,
+  part_name TEXT,
+  process TEXT,
+  vehicle_model TEXT,
+  defect_type_1 INTEGER DEFAULT 0,
+  defect_type_2 INTEGER DEFAULT 0,
+  defect_type_3 INTEGER DEFAULT 0,
+  defect_type_4 INTEGER DEFAULT 0,
+  defect_type_5 INTEGER DEFAULT 0,
+  defect_type_6 INTEGER DEFAULT 0,
+  defect_type_7 INTEGER DEFAULT 0,
+  defect_type_8 INTEGER DEFAULT 0,
+  defect_type_9 INTEGER DEFAULT 0,
+  defect_type_10 INTEGER DEFAULT 0,
+  defect_types_detail JSONB DEFAULT '{}'::jsonb,
+  total_defects INTEGER DEFAULT 0,
+  data_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Painting Defect Type Data 인덱스
+CREATE INDEX IF NOT EXISTS idx_painting_data_upload ON painting_defect_type_data(upload_id);
+CREATE INDEX IF NOT EXISTS idx_painting_data_customer ON painting_defect_type_data(customer);
+CREATE INDEX IF NOT EXISTS idx_painting_data_process ON painting_defect_type_data(process);
+CREATE INDEX IF NOT EXISTS idx_painting_data_part_code ON painting_defect_type_data(part_code);
+CREATE INDEX IF NOT EXISTS idx_painting_data_date ON painting_defect_type_data(data_date DESC);
+
+-- Painting Defect Type Data 업데이트 트리거
+DROP TRIGGER IF EXISTS update_painting_data_updated_at ON painting_defect_type_data;
+CREATE TRIGGER update_painting_data_updated_at
+  BEFORE INSERT OR UPDATE ON painting_defect_type_data
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Painting Defect Type Data RLS 비활성화
+ALTER TABLE painting_defect_type_data DISABLE ROW LEVEL SECURITY;
+
+-- 13. Assembly Defect Type Upload History 테이블 (조립불량유형 업로드 이력)
+CREATE TABLE IF NOT EXISTS assembly_defect_type_uploads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  record_count INTEGER NOT NULL DEFAULT 0,
+  upload_date TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Assembly Defect Type Upload History 인덱스
+CREATE INDEX IF NOT EXISTS idx_assembly_uploads_date ON assembly_defect_type_uploads(upload_date DESC);
+
+-- Assembly Defect Type Uploads RLS 비활성화
+ALTER TABLE assembly_defect_type_uploads DISABLE ROW LEVEL SECURITY;
+
+-- 14. Assembly Defect Type Data 테이블 (조립불량유형 상세 데이터)
+CREATE TABLE IF NOT EXISTS assembly_defect_type_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  upload_id UUID REFERENCES assembly_defect_type_uploads(id) ON DELETE CASCADE,
+  customer TEXT,
+  part_code TEXT,
+  part_name TEXT,
+  process TEXT,
+  vehicle_model TEXT,
+  defect_type_1 INTEGER DEFAULT 0,
+  defect_type_2 INTEGER DEFAULT 0,
+  defect_type_3 INTEGER DEFAULT 0,
+  defect_type_4 INTEGER DEFAULT 0,
+  defect_type_5 INTEGER DEFAULT 0,
+  defect_type_6 INTEGER DEFAULT 0,
+  defect_type_7 INTEGER DEFAULT 0,
+  defect_type_8 INTEGER DEFAULT 0,
+  defect_type_9 INTEGER DEFAULT 0,
+  defect_type_10 INTEGER DEFAULT 0,
+  defect_types_detail JSONB DEFAULT '{}'::jsonb,
+  total_defects INTEGER DEFAULT 0,
+  data_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Assembly Defect Type Data 인덱스
+CREATE INDEX IF NOT EXISTS idx_assembly_data_upload ON assembly_defect_type_data(upload_id);
+CREATE INDEX IF NOT EXISTS idx_assembly_data_customer ON assembly_defect_type_data(customer);
+CREATE INDEX IF NOT EXISTS idx_assembly_data_process ON assembly_defect_type_data(process);
+CREATE INDEX IF NOT EXISTS idx_assembly_data_part_code ON assembly_defect_type_data(part_code);
+CREATE INDEX IF NOT EXISTS idx_assembly_data_date ON assembly_defect_type_data(data_date DESC);
+
+-- Assembly Defect Type Data 업데이트 트리거
+DROP TRIGGER IF EXISTS update_assembly_data_updated_at ON assembly_defect_type_data;
+CREATE TRIGGER update_assembly_data_updated_at
+  BEFORE INSERT OR UPDATE ON assembly_defect_type_data
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Assembly Defect Type Data RLS 비활성화
+ALTER TABLE assembly_defect_type_data DISABLE ROW LEVEL SECURITY;
+
 -- ============================================
 -- 완료!
 -- ============================================
