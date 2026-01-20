@@ -610,6 +610,45 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
+
+                {/* Pie Chart for Defect Type Distribution */}
+                <h3 className="text-lg font-bold text-slate-900 mb-6 mt-12">불량유형별 비율</h3>
+                <div className="h-96">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={defectTypeAnalysis.slice(0, 10)}
+                        dataKey="percentage"
+                        nameKey="defectType"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={120}
+                        label={({ defectType, percentage }) => `${defectType}: ${percentage.toFixed(1)}%`}
+                        labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
+                      >
+                        {defectTypeAnalysis.slice(0, 10).map((entry, index) => {
+                          const colors = [
+                            '#8b5cf6', '#ec4899', '#3b82f6', '#10b981', '#f59e0b',
+                            '#ef4444', '#06b6d4', '#8b5cf6', '#6366f1', '#14b8a6'
+                          ];
+                          return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                        })}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        formatter={(value: any, name: string) => [`${Number(value).toFixed(1)}%`, name]}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value) => {
+                          const item = defectTypeAnalysis.find(d => d.defectType === value);
+                          return `${value} (${item ? item.percentage.toFixed(1) : '0.0'}%)`;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </>
             ) : (
               <div className="text-center py-12">
