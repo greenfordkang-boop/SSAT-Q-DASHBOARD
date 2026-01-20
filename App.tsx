@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload, PaintingDefectTypeData, PaintingDefectTypeUpload, AssemblyDefectTypeData, AssemblyDefectTypeUpload } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -39,6 +39,10 @@ const App: React.FC = () => {
   const [processQualityUploads, setProcessQualityUploads] = useState<ProcessQualityUpload[]>([]);
   const [processDefectTypeData, setProcessDefectTypeData] = useState<ProcessDefectTypeData[]>([]);
   const [processDefectTypeUploads, setProcessDefectTypeUploads] = useState<ProcessDefectTypeUpload[]>([]);
+  const [paintingDefectTypeData, setPaintingDefectTypeData] = useState<PaintingDefectTypeData[]>([]);
+  const [paintingDefectTypeUploads, setPaintingDefectTypeUploads] = useState<PaintingDefectTypeUpload[]>([]);
+  const [assemblyDefectTypeData, setAssemblyDefectTypeData] = useState<AssemblyDefectTypeData[]>([]);
+  const [assemblyDefectTypeUploads, setAssemblyDefectTypeUploads] = useState<AssemblyDefectTypeUpload[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -419,6 +423,116 @@ const App: React.FC = () => {
         createdAt: u.created_at
       }));
       setProcessDefectTypeUploads(typedProcessDefectTypeUploads);
+
+      // 10. 도장불량유형 데이터 가져오기
+      const { data: paintingData, error: paintingError } = await supabase
+        .from('painting_defect_type_data')
+        .select('*')
+        .order('data_date', { ascending: false });
+
+      if (paintingError) {
+        console.warn("Painting Defect Type Data Fetch Warning:", paintingError.message);
+      }
+
+      const typedPaintingDefectTypeData = (paintingData || []).map((p: any) => ({
+        id: p.id,
+        uploadId: p.upload_id,
+        customer: p.customer,
+        partCode: p.part_code,
+        partName: p.part_name,
+        process: p.process,
+        vehicleModel: p.vehicle_model,
+        defectType1: Number(p.defect_type_1 || 0),
+        defectType2: Number(p.defect_type_2 || 0),
+        defectType3: Number(p.defect_type_3 || 0),
+        defectType4: Number(p.defect_type_4 || 0),
+        defectType5: Number(p.defect_type_5 || 0),
+        defectType6: Number(p.defect_type_6 || 0),
+        defectType7: Number(p.defect_type_7 || 0),
+        defectType8: Number(p.defect_type_8 || 0),
+        defectType9: Number(p.defect_type_9 || 0),
+        defectType10: Number(p.defect_type_10 || 0),
+        defectTypesDetail: p.defect_types_detail || {},
+        totalDefects: Number(p.total_defects || 0),
+        dataDate: p.data_date,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      }));
+      setPaintingDefectTypeData(typedPaintingDefectTypeData);
+
+      // 11. 도장불량유형 업로드 이력 가져오기
+      const { data: paintingUploads, error: paintingUploadError } = await supabase
+        .from('painting_defect_type_uploads')
+        .select('*')
+        .order('upload_date', { ascending: false });
+
+      if (paintingUploadError) {
+        console.warn("Painting Defect Type Upload Fetch Warning:", paintingUploadError.message);
+      }
+
+      const typedPaintingDefectTypeUploads = (paintingUploads || []).map((u: any) => ({
+        id: u.id,
+        filename: u.filename,
+        recordCount: Number(u.record_count || 0),
+        uploadDate: u.upload_date,
+        createdAt: u.created_at
+      }));
+      setPaintingDefectTypeUploads(typedPaintingDefectTypeUploads);
+
+      // 12. 조립불량유형 데이터 가져오기
+      const { data: assemblyData, error: assemblyError } = await supabase
+        .from('assembly_defect_type_data')
+        .select('*')
+        .order('data_date', { ascending: false });
+
+      if (assemblyError) {
+        console.warn("Assembly Defect Type Data Fetch Warning:", assemblyError.message);
+      }
+
+      const typedAssemblyDefectTypeData = (assemblyData || []).map((p: any) => ({
+        id: p.id,
+        uploadId: p.upload_id,
+        customer: p.customer,
+        partCode: p.part_code,
+        partName: p.part_name,
+        process: p.process,
+        vehicleModel: p.vehicle_model,
+        defectType1: Number(p.defect_type_1 || 0),
+        defectType2: Number(p.defect_type_2 || 0),
+        defectType3: Number(p.defect_type_3 || 0),
+        defectType4: Number(p.defect_type_4 || 0),
+        defectType5: Number(p.defect_type_5 || 0),
+        defectType6: Number(p.defect_type_6 || 0),
+        defectType7: Number(p.defect_type_7 || 0),
+        defectType8: Number(p.defect_type_8 || 0),
+        defectType9: Number(p.defect_type_9 || 0),
+        defectType10: Number(p.defect_type_10 || 0),
+        defectTypesDetail: p.defect_types_detail || {},
+        totalDefects: Number(p.total_defects || 0),
+        dataDate: p.data_date,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      }));
+      setAssemblyDefectTypeData(typedAssemblyDefectTypeData);
+
+      // 13. 조립불량유형 업로드 이력 가져오기
+      const { data: assemblyUploads, error: assemblyUploadError } = await supabase
+        .from('assembly_defect_type_uploads')
+        .select('*')
+        .order('upload_date', { ascending: false });
+
+      if (assemblyUploadError) {
+        console.warn("Assembly Defect Type Upload Fetch Warning:", assemblyUploadError.message);
+      }
+
+      const typedAssemblyDefectTypeUploads = (assemblyUploads || []).map((u: any) => ({
+        id: u.id,
+        filename: u.filename,
+        recordCount: Number(u.record_count || 0),
+        uploadDate: u.upload_date,
+        createdAt: u.created_at
+      }));
+      setAssemblyDefectTypeUploads(typedAssemblyDefectTypeUploads);
 
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
@@ -816,6 +930,238 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUploadPaintingDefectType = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      // Extract header row to get column names in correct order
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      const headers: string[] = [];
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+        const cell = worksheet[cellAddress];
+        headers.push(cell ? String(cell.v) : `Column${col + 1}`);
+      }
+
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
+
+      // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteUploadsError } = await supabase.from('painting_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteUploadsError) throw deleteUploadsError;
+
+      const { data: uploadRecord, error: uploadError } = await supabase.from('painting_defect_type_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      if (uploadError) throw uploadError;
+
+      // Helper function to safely convert to number, defaulting to 0 if NaN
+      const safeNumber = (value: any): number => {
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+      };
+
+      // Helper function to find column value with flexible matching
+      const findColumnValue = (row: any, ...possibleNames: string[]): any => {
+        for (const name of possibleNames) {
+          if (row[name] !== undefined) return row[name];
+        }
+        const keys = Object.keys(row);
+        for (const name of possibleNames) {
+          const normalizedName = name.replace(/\[.*?\]/g, '').trim();
+          for (const key of keys) {
+            const normalizedKey = key.replace(/\[.*?\]/g, '').trim();
+            if (normalizedKey === normalizedName) return row[key];
+          }
+        }
+        return undefined;
+      };
+
+      // N열은 14번째 컬럼 (인덱스 13), AG열은 33번째 컬럼 (인덱스 32)
+      // 20개 컬럼만 불량유형으로 처리
+      const defectTypeStartCol = 13; // N열 (0-based index)
+      const defectTypeEndCol = 32;   // AG열 (0-based index)
+      const defectTypeHeaders = headers.slice(defectTypeStartCol, defectTypeEndCol + 1);
+
+      const processedData = jsonData.map((row: any) => {
+        // Extract defect type columns from N to AG (20 columns)
+        const defectTypes: Record<string, number> = {};
+        const defectTypeValues: number[] = [];
+
+        // Extract only columns N to AG
+        defectTypeHeaders.forEach((header) => {
+          const value = safeNumber(row[header]);
+          // Only include if value > 0 (불량이 없으면 제외)
+          if (value > 0) {
+            defectTypes[header] = value;
+            defectTypeValues.push(value);
+          }
+        });
+
+        // Map first 10 defect types to dedicated columns
+        const defectType1 = defectTypeValues[0] || 0;
+        const defectType2 = defectTypeValues[1] || 0;
+        const defectType3 = defectTypeValues[2] || 0;
+        const defectType4 = defectTypeValues[3] || 0;
+        const defectType5 = defectTypeValues[4] || 0;
+        const defectType6 = defectTypeValues[5] || 0;
+        const defectType7 = defectTypeValues[6] || 0;
+        const defectType8 = defectTypeValues[7] || 0;
+        const defectType9 = defectTypeValues[8] || 0;
+        const defectType10 = defectTypeValues[9] || 0;
+
+        const totalDefects = defectTypeValues.reduce((sum, val) => sum + val, 0);
+
+        return {
+          upload_id: uploadRecord.id,
+          customer: findColumnValue(row, '고객사', '거래처', '사원') || null,
+          part_code: findColumnValue(row, '품번', '부품번호', '자재번호') || null,
+          part_name: findColumnValue(row, '품명', '부품명', '제품명') || null,
+          process: findColumnValue(row, '공정', '공정명') || null,
+          vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
+          defect_type_1: defectType1,
+          defect_type_2: defectType2,
+          defect_type_3: defectType3,
+          defect_type_4: defectType4,
+          defect_type_5: defectType5,
+          defect_type_6: defectType6,
+          defect_type_7: defectType7,
+          defect_type_8: defectType8,
+          defect_type_9: defectType9,
+          defect_type_10: defectType10,
+          defect_types_detail: defectTypes,
+          total_defects: totalDefects,
+          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+        };
+      });
+
+      const { error: dataError } = await supabase.from('painting_defect_type_data').insert(processedData);
+      if (dataError) throw dataError;
+
+      await fetchAllData();
+      alert('✅ 도장 불량유형 데이터 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+    } catch (e: any) {
+      handleError(e, "도장불량유형 데이터 업로드");
+      throw e;
+    }
+  };
+
+  const handleUploadAssemblyDefectType = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      // Extract header row to get column names in correct order
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      const headers: string[] = [];
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+        const cell = worksheet[cellAddress];
+        headers.push(cell ? String(cell.v) : `Column${col + 1}`);
+      }
+
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
+
+      // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteUploadsError } = await supabase.from('assembly_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteUploadsError) throw deleteUploadsError;
+
+      const { data: uploadRecord, error: uploadError } = await supabase.from('assembly_defect_type_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      if (uploadError) throw uploadError;
+
+      // Helper function to safely convert to number, defaulting to 0 if NaN
+      const safeNumber = (value: any): number => {
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+      };
+
+      // Helper function to find column value with flexible matching
+      const findColumnValue = (row: any, ...possibleNames: string[]): any => {
+        for (const name of possibleNames) {
+          if (row[name] !== undefined) return row[name];
+        }
+        const keys = Object.keys(row);
+        for (const name of possibleNames) {
+          const normalizedName = name.replace(/\[.*?\]/g, '').trim();
+          for (const key of keys) {
+            const normalizedKey = key.replace(/\[.*?\]/g, '').trim();
+            if (normalizedKey === normalizedName) return row[key];
+          }
+        }
+        return undefined;
+      };
+
+      // N열은 14번째 컬럼 (인덱스 13), AG열은 33번째 컬럼 (인덱스 32)
+      // 20개 컬럼만 불량유형으로 처리
+      const defectTypeStartCol = 13; // N열 (0-based index)
+      const defectTypeEndCol = 32;   // AG열 (0-based index)
+      const defectTypeHeaders = headers.slice(defectTypeStartCol, defectTypeEndCol + 1);
+
+      const processedData = jsonData.map((row: any) => {
+        // Extract defect type columns from N to AG (20 columns)
+        const defectTypes: Record<string, number> = {};
+        const defectTypeValues: number[] = [];
+
+        // Extract only columns N to AG
+        defectTypeHeaders.forEach((header) => {
+          const value = safeNumber(row[header]);
+          // Only include if value > 0 (불량이 없으면 제외)
+          if (value > 0) {
+            defectTypes[header] = value;
+            defectTypeValues.push(value);
+          }
+        });
+
+        // Map first 10 defect types to dedicated columns
+        const defectType1 = defectTypeValues[0] || 0;
+        const defectType2 = defectTypeValues[1] || 0;
+        const defectType3 = defectTypeValues[2] || 0;
+        const defectType4 = defectTypeValues[3] || 0;
+        const defectType5 = defectTypeValues[4] || 0;
+        const defectType6 = defectTypeValues[5] || 0;
+        const defectType7 = defectTypeValues[6] || 0;
+        const defectType8 = defectTypeValues[7] || 0;
+        const defectType9 = defectTypeValues[8] || 0;
+        const defectType10 = defectTypeValues[9] || 0;
+
+        const totalDefects = defectTypeValues.reduce((sum, val) => sum + val, 0);
+
+        return {
+          upload_id: uploadRecord.id,
+          customer: findColumnValue(row, '고객사', '거래처', '사원') || null,
+          part_code: findColumnValue(row, '품번', '부품번호', '자재번호') || null,
+          part_name: findColumnValue(row, '품명', '부품명', '제품명') || null,
+          process: findColumnValue(row, '공정', '공정명') || null,
+          vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
+          defect_type_1: defectType1,
+          defect_type_2: defectType2,
+          defect_type_3: defectType3,
+          defect_type_4: defectType4,
+          defect_type_5: defectType5,
+          defect_type_6: defectType6,
+          defect_type_7: defectType7,
+          defect_type_8: defectType8,
+          defect_type_9: defectType9,
+          defect_type_10: defectType10,
+          defect_types_detail: defectTypes,
+          total_defects: totalDefects,
+          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+        };
+      });
+
+      const { error: dataError } = await supabase.from('assembly_defect_type_data').insert(processedData);
+      if (dataError) throw dataError;
+
+      await fetchAllData();
+      alert('✅ 조립 불량유형 데이터 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+    } catch (e: any) {
+      handleError(e, "조립불량유형 데이터 업로드");
+      throw e;
+    }
+  };
+
   // DB 초기 설정 화면
   if (needsDatabaseSetup && isAuthenticated) {
     return (
@@ -945,7 +1291,7 @@ const App: React.FC = () => {
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
             {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
-            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} defectTypeData={processDefectTypeData} defectTypeUploads={processDefectTypeUploads} onUploadDefectType={handleUploadProcessDefectType} isLoading={isLoading} />}
+            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} defectTypeData={processDefectTypeData} defectTypeUploads={processDefectTypeUploads} onUploadDefectType={handleUploadProcessDefectType} paintingDefectTypeData={paintingDefectTypeData} paintingDefectTypeUploads={paintingDefectTypeUploads} onUploadPaintingDefectType={handleUploadPaintingDefectType} assemblyDefectTypeData={assemblyDefectTypeData} assemblyDefectTypeUploads={assemblyDefectTypeUploads} onUploadAssemblyDefectType={handleUploadAssemblyDefectType} isLoading={isLoading} />}
             {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
             {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
           </div>
