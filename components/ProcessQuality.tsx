@@ -186,18 +186,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     let grandTotal = 0;
 
     defectTypeData.forEach(item => {
-      // Count defect types from defectType1 to defectType10
-      for (let i = 1; i <= 10; i++) {
-        const key = `defectType${i}` as keyof ProcessDefectTypeData;
-        const value = Number(item[key]) || 0;
-        if (value > 0) {
-          const typeName = `불량유형 ${i}`;
-          totals[typeName] = (totals[typeName] || 0) + value;
-          grandTotal += value;
-        }
-      }
-
-      // Also check defectTypesDetail
+      // Only use defectTypesDetail which contains real defect type names from Excel
       if (item.defectTypesDetail) {
         Object.entries(item.defectTypesDetail).forEach(([type, count]) => {
           if (count > 0) {
@@ -226,13 +215,13 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       const process = item.process || '미분류';
       if (!grouped[process]) grouped[process] = {};
 
-      for (let i = 1; i <= 10; i++) {
-        const key = `defectType${i}` as keyof ProcessDefectTypeData;
-        const value = Number(item[key]) || 0;
-        if (value > 0) {
-          const typeName = `불량유형 ${i}`;
-          grouped[process][typeName] = (grouped[process][typeName] || 0) + value;
-        }
+      // Only use defectTypesDetail which contains real defect type names from Excel
+      if (item.defectTypesDetail) {
+        Object.entries(item.defectTypesDetail).forEach(([type, count]) => {
+          if (count > 0) {
+            grouped[process][type] = (grouped[process][type] || 0) + count;
+          }
+        });
       }
     });
 
