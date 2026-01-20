@@ -705,6 +705,16 @@ const App: React.FC = () => {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      // Extract header row to get column names in correct order
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      const headers: string[] = [];
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+        const cell = worksheet[cellAddress];
+        headers.push(cell ? String(cell.v) : `Column${col + 1}`);
+      }
+
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
@@ -737,34 +747,40 @@ const App: React.FC = () => {
         return undefined;
       };
 
-      const processedData = jsonData.map((row: any) => {
-        // Extract defect type columns (find all numeric columns)
-        const defectTypes: Record<string, number> = {};
-        let defectType1 = 0, defectType2 = 0, defectType3 = 0, defectType4 = 0, defectType5 = 0;
-        let defectType6 = 0, defectType7 = 0, defectType8 = 0, defectType9 = 0, defectType10 = 0;
+      // N열은 14번째 컬럼 (인덱스 13), AG열은 33번째 컬럼 (인덱스 32)
+      // 20개 컬럼만 불량유형으로 처리
+      const defectTypeStartCol = 13; // N열 (0-based index)
+      const defectTypeEndCol = 32;   // AG열 (0-based index)
+      const defectTypeHeaders = headers.slice(defectTypeStartCol, defectTypeEndCol + 1);
 
-        // Try to find common defect type column patterns
-        Object.keys(row).forEach((key, index) => {
-          const value = safeNumber(row[key]);
-          // Store all numeric columns as potential defect types
-          if (!isNaN(value) && value > 0 && !key.includes('수량') && !key.includes('금액')) {
-            defectTypes[key] = value;
-            // Map first 10 defect types to dedicated columns
-            if (index === 0 || key.includes('1') || key.includes('저속')) defectType1 = value;
-            else if (index === 1 || key.includes('2') || key.includes('고속')) defectType2 = value;
-            else if (index === 2 || key.includes('3')) defectType3 = value;
-            else if (index === 3 || key.includes('4')) defectType4 = value;
-            else if (index === 4 || key.includes('5')) defectType5 = value;
-            else if (index === 5 || key.includes('6')) defectType6 = value;
-            else if (index === 6 || key.includes('7')) defectType7 = value;
-            else if (index === 7 || key.includes('8')) defectType8 = value;
-            else if (index === 8 || key.includes('9')) defectType9 = value;
-            else if (index === 9 || key.includes('10')) defectType10 = value;
+      const processedData = jsonData.map((row: any) => {
+        // Extract defect type columns from N to AG (20 columns)
+        const defectTypes: Record<string, number> = {};
+        const defectTypeValues: number[] = [];
+
+        // Extract only columns N to AG
+        defectTypeHeaders.forEach((header) => {
+          const value = safeNumber(row[header]);
+          // Only include if value > 0 (불량이 없으면 제외)
+          if (value > 0) {
+            defectTypes[header] = value;
+            defectTypeValues.push(value);
           }
         });
 
-        const totalDefects = defectType1 + defectType2 + defectType3 + defectType4 + defectType5 +
-                            defectType6 + defectType7 + defectType8 + defectType9 + defectType10;
+        // Map first 10 defect types to dedicated columns
+        const defectType1 = defectTypeValues[0] || 0;
+        const defectType2 = defectTypeValues[1] || 0;
+        const defectType3 = defectTypeValues[2] || 0;
+        const defectType4 = defectTypeValues[3] || 0;
+        const defectType5 = defectTypeValues[4] || 0;
+        const defectType6 = defectTypeValues[5] || 0;
+        const defectType7 = defectTypeValues[6] || 0;
+        const defectType8 = defectTypeValues[7] || 0;
+        const defectType9 = defectTypeValues[8] || 0;
+        const defectType10 = defectTypeValues[9] || 0;
+
+        const totalDefects = defectTypeValues.reduce((sum, val) => sum + val, 0);
 
         return {
           upload_id: uploadRecord.id,
