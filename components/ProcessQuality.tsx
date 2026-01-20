@@ -1102,6 +1102,140 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           </div>
         </div>
       )}
+
+      {/* Painting Defect Type Upload Modal */}
+      {showPaintingDefectTypeUpload && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">도장 불량유형 파일 업로드</h2>
+              <button onClick={() => { setShowPaintingDefectTypeUpload(false); setPaintingDefectTypeFile(null); }} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div onDragOver={handleDragOverPaintingDefectType} onDragLeave={handleDragLeavePaintingDefectType} onDrop={handleDropPaintingDefectType} className={'border-2 border-dashed rounded-xl p-12 text-center transition-all mb-6 ' + (isDraggingPaintingDefectType ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-slate-50')}>
+              <div className="flex flex-col items-center gap-4">
+                {paintingDefectTypeFile ? (
+                  <>
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900">{paintingDefectTypeFile.name}</p>
+                      <p className="text-sm text-slate-500">{(paintingDefectTypeFile.size / 1024).toFixed(2)} KB</p>
+                    </div>
+                    <button onClick={() => setPaintingDefectTypeFile(null)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">다른 파일 선택</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900 mb-1">파일을 드래그하거나 클릭하여 선택하세요</p>
+                      <p className="text-sm text-slate-500">엑셀 파일(.xlsx, .xls)만 지원됩니다</p>
+                    </div>
+                    <label htmlFor="painting-defect-type-file-input">
+                      <button onClick={() => document.getElementById('painting-defect-type-file-input')?.click()} className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        파일 선택
+                      </button>
+                    </label>
+                    <input id="painting-defect-type-file-input" type="file" accept=".xlsx,.xls" onChange={handleFileSelectPaintingDefectType} className="hidden" />
+                  </>
+                )}
+              </div>
+            </div>
+            {paintingDefectTypeFile && (
+              <div className="flex gap-3">
+                <button onClick={() => { setShowPaintingDefectTypeUpload(false); setPaintingDefectTypeFile(null); }} className="flex-1 px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold">
+                  취소
+                </button>
+                <button onClick={handleUploadPaintingDefectType} disabled={uploadingPaintingDefectType} className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {uploadingPaintingDefectType ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      업로드 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                      업로드
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Assembly Defect Type Upload Modal */}
+      {showAssemblyDefectTypeUpload && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">조립 불량유형 파일 업로드</h2>
+              <button onClick={() => { setShowAssemblyDefectTypeUpload(false); setAssemblyDefectTypeFile(null); }} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div onDragOver={handleDragOverAssemblyDefectType} onDragLeave={handleDragLeaveAssemblyDefectType} onDrop={handleDropAssemblyDefectType} className={'border-2 border-dashed rounded-xl p-12 text-center transition-all mb-6 ' + (isDraggingAssemblyDefectType ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-slate-50')}>
+              <div className="flex flex-col items-center gap-4">
+                {assemblyDefectTypeFile ? (
+                  <>
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900">{assemblyDefectTypeFile.name}</p>
+                      <p className="text-sm text-slate-500">{(assemblyDefectTypeFile.size / 1024).toFixed(2)} KB</p>
+                    </div>
+                    <button onClick={() => setAssemblyDefectTypeFile(null)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">다른 파일 선택</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-900 mb-1">파일을 드래그하거나 클릭하여 선택하세요</p>
+                      <p className="text-sm text-slate-500">엑셀 파일(.xlsx, .xls)만 지원됩니다</p>
+                    </div>
+                    <label htmlFor="assembly-defect-type-file-input">
+                      <button onClick={() => document.getElementById('assembly-defect-type-file-input')?.click()} className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        파일 선택
+                      </button>
+                    </label>
+                    <input id="assembly-defect-type-file-input" type="file" accept=".xlsx,.xls" onChange={handleFileSelectAssemblyDefectType} className="hidden" />
+                  </>
+                )}
+              </div>
+            </div>
+            {assemblyDefectTypeFile && (
+              <div className="flex gap-3">
+                <button onClick={() => { setShowAssemblyDefectTypeUpload(false); setAssemblyDefectTypeFile(null); }} className="flex-1 px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold">
+                  취소
+                </button>
+                <button onClick={handleUploadAssemblyDefectType} disabled={uploadingAssemblyDefectType} className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {uploadingAssemblyDefectType ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      업로드 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                      업로드
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
