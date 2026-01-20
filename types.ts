@@ -172,6 +172,12 @@ export interface ProcessQualityKPI {
   totalDefects: number;
   averageDefectRate: number;
   totalDefectAmount: number;
+  changeFromPrevious?: {
+    totalProduction: number;
+    totalDefects: number;
+    averageDefectRate: number;
+    totalDefectAmount: number;
+  };
 }
 
 export interface ProcessQualityByPartType {

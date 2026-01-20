@@ -72,20 +72,83 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
 
   const hasData = data && data.length > 0;
 
+  // Filter to show only the latest upload data
+  const currentUploadData = useMemo(() => {
+    if (!data || data.length === 0 || !uploads || uploads.length === 0) {
+      return data;
+    }
+
+    // Get the most recent upload
+    const sortedUploads = [...uploads].sort((a, b) =>
+      new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+    );
+
+    const latestUploadId = sortedUploads[0]?.id;
+    if (!latestUploadId) {
+      return data;
+    }
+
+    return data.filter(item => item.uploadId === latestUploadId);
+  }, [data, uploads]);
+
   const kpiData: ProcessQualityKPI = useMemo(() => {
     if (!data || data.length === 0) {
       return { totalProduction: 0, totalDefects: 0, averageDefectRate: 0, totalDefectAmount: 0 };
     }
-    const totalProduction = data.reduce((sum, item) => sum + item.productionQty, 0);
-    const totalDefects = data.reduce((sum, item) => sum + item.defectQty, 0);
-    const totalDefectAmount = data.reduce((sum, item) => sum + item.defectAmount, 0);
+
+    // Get the two most recent uploads
+    const sortedUploads = [...uploads].sort((a, b) =>
+      new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+    );
+
+    if (sortedUploads.length === 0) {
+      // If no uploads, calculate from all data
+      const totalProduction = data.reduce((sum, item) => sum + item.productionQty, 0);
+      const totalDefects = data.reduce((sum, item) => sum + item.defectQty, 0);
+      const totalDefectAmount = data.reduce((sum, item) => sum + item.defectAmount, 0);
+      const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
+      return { totalProduction, totalDefects, averageDefectRate, totalDefectAmount };
+    }
+
+    // Calculate current (latest upload) KPIs
+    const latestUploadId = sortedUploads[0].id;
+    const currentData = data.filter(item => item.uploadId === latestUploadId);
+
+    const totalProduction = currentData.reduce((sum, item) => sum + item.productionQty, 0);
+    const totalDefects = currentData.reduce((sum, item) => sum + item.defectQty, 0);
+    const totalDefectAmount = currentData.reduce((sum, item) => sum + item.defectAmount, 0);
     const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
+
+    // Calculate previous upload KPIs if available
+    if (sortedUploads.length > 1) {
+      const previousUploadId = sortedUploads[1].id;
+      const previousData = data.filter(item => item.uploadId === previousUploadId);
+
+      const prevTotalProduction = previousData.reduce((sum, item) => sum + item.productionQty, 0);
+      const prevTotalDefects = previousData.reduce((sum, item) => sum + item.defectQty, 0);
+      const prevTotalDefectAmount = previousData.reduce((sum, item) => sum + item.defectAmount, 0);
+      const prevAverageDefectRate = prevTotalProduction > 0 ? (prevTotalDefects / prevTotalProduction) * 100 : 0;
+
+      return {
+        totalProduction,
+        totalDefects,
+        averageDefectRate,
+        totalDefectAmount,
+        changeFromPrevious: {
+          totalProduction: totalProduction - prevTotalProduction,
+          totalDefects: totalDefects - prevTotalDefects,
+          averageDefectRate: averageDefectRate - prevAverageDefectRate,
+          totalDefectAmount: totalDefectAmount - prevTotalDefectAmount,
+        }
+      };
+    }
+
     return { totalProduction, totalDefects, averageDefectRate, totalDefectAmount };
-  }, [data]);
+  }, [data, uploads]);
 
   const partTypeData: ProcessQualityByPartType[] = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const grouped = data.reduce((acc, item) => {
+    if (!currentUploadData || currentUploadData.length === 0) return [];
+    const grouped = currentUploadData.reduce((acc, item) => {
       if (!acc[item.partType]) {
         acc[item.partType] = { partType: item.partType, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
       }
@@ -98,11 +161,11 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     }));
-  }, [data]);
+  }, [currentUploadData]);
 
   const customerData: ProcessQualityByCustomer[] = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const grouped = data.reduce((acc, item) => {
+    if (!currentUploadData || currentUploadData.length === 0) return [];
+    const grouped = currentUploadData.reduce((acc, item) => {
       if (!acc[item.customer]) {
         acc[item.customer] = { customer: item.customer, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
       }
@@ -115,11 +178,11 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [data]);
+  }, [currentUploadData]);
 
   const vehicleModelData: ProcessQualityByVehicleModel[] = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const grouped = data.reduce((acc, item) => {
+    if (!currentUploadData || currentUploadData.length === 0) return [];
+    const grouped = currentUploadData.reduce((acc, item) => {
       const model = item.vehicleModel || '미분류';
       if (!acc[model]) {
         acc[model] = { vehicleModel: model, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
@@ -133,11 +196,11 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [data]);
+  }, [currentUploadData]);
 
   const productNameData: ProcessQualityByProductName[] = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const grouped = data.reduce((acc, item) => {
+    if (!currentUploadData || currentUploadData.length === 0) return [];
+    const grouped = currentUploadData.reduce((acc, item) => {
       const product = item.productName || '미분류';
       if (!acc[product]) {
         acc[product] = { productName: product, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
@@ -151,11 +214,11 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [data]);
+  }, [currentUploadData]);
 
   const timeSeriesData: ProcessQualityTimeSeries[] = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const grouped = data.reduce((acc, item) => {
+    if (!currentUploadData || currentUploadData.length === 0) return [];
+    const grouped = currentUploadData.reduce((acc, item) => {
       const date = item.dataDate;
       if (!acc[date]) {
         acc[date] = { date, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
@@ -172,7 +235,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         totalAmount: item.totalAmount
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [data]);
+  }, [currentUploadData]);
 
   const chartData = useMemo(() => {
     const mapped = partTypeData.map(item => ({
@@ -661,7 +724,19 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </div>
           </div>
           <div className="text-3xl font-bold text-slate-900">{formatNumber(kpiData.totalProduction)}</div>
-          <p className="text-xs text-slate-500 mt-1">EA</p>
+          <div className="flex items-center gap-2 mt-2">
+            {kpiData.changeFromPrevious && (
+              <div className="flex items-center gap-1">
+                <svg className={'w-3 h-3 ' + (kpiData.changeFromPrevious.totalProduction >= 0 ? 'text-blue-600' : 'text-blue-600 rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                <span className="text-xs font-medium text-blue-600">
+                  ({formatNumber(Math.abs(kpiData.changeFromPrevious.totalProduction))})
+                </span>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">EA</p>
+          </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
@@ -671,7 +746,19 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </div>
           </div>
           <div className="text-3xl font-bold text-slate-900">{formatNumber(kpiData.totalDefects)}</div>
-          <p className="text-xs text-slate-500 mt-1">EA</p>
+          <div className="flex items-center gap-2 mt-2">
+            {kpiData.changeFromPrevious && (
+              <div className="flex items-center gap-1">
+                <svg className={'w-3 h-3 ' + (kpiData.changeFromPrevious.totalDefects >= 0 ? 'text-blue-600' : 'text-blue-600 rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                <span className="text-xs font-medium text-blue-600">
+                  ({formatNumber(Math.abs(kpiData.changeFromPrevious.totalDefects))})
+                </span>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">EA</p>
+          </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
@@ -683,7 +770,19 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </div>
           </div>
           <div className="text-3xl font-bold text-slate-900">{kpiData.averageDefectRate.toFixed(2)}</div>
-          <p className="text-xs text-slate-500 mt-1">%</p>
+          <div className="flex items-center gap-2 mt-2">
+            {kpiData.changeFromPrevious && (
+              <div className="flex items-center gap-1">
+                <svg className={'w-3 h-3 ' + (kpiData.changeFromPrevious.averageDefectRate >= 0 ? 'text-blue-600' : 'text-blue-600 rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                <span className="text-xs font-medium text-blue-600">
+                  ({Math.abs(kpiData.changeFromPrevious.averageDefectRate).toFixed(2)}%)
+                </span>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">%</p>
+          </div>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
@@ -693,7 +792,19 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </div>
           </div>
           <div className="text-3xl font-bold text-slate-900">{formatCurrency(kpiData.totalDefectAmount)}</div>
-          <p className="text-xs text-slate-500 mt-1">KRW</p>
+          <div className="flex items-center gap-2 mt-2">
+            {kpiData.changeFromPrevious && (
+              <div className="flex items-center gap-1">
+                <svg className={'w-3 h-3 ' + (kpiData.changeFromPrevious.totalDefectAmount >= 0 ? 'text-blue-600' : 'text-blue-600 rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                <span className="text-xs font-medium text-blue-600">
+                  ({formatCurrency(Math.abs(kpiData.changeFromPrevious.totalDefectAmount))})
+                </span>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">KRW</p>
+          </div>
         </div>
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
