@@ -755,6 +755,9 @@ const App: React.FC = () => {
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
       // ⭐ 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteDataError } = await supabase.from('process_quality_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteDataError) throw deleteDataError;
+
       const { error: deleteUploadsError } = await supabase.from('process_quality_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (deleteUploadsError) throw deleteUploadsError;
 
@@ -833,6 +836,9 @@ const App: React.FC = () => {
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
       // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteDataError } = await supabase.from('process_defect_type_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteDataError) throw deleteDataError;
+
       const { error: deleteUploadsError } = await supabase.from('process_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (deleteUploadsError) throw deleteUploadsError;
 
@@ -949,6 +955,9 @@ const App: React.FC = () => {
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
       // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteDataError } = await supabase.from('painting_defect_type_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteDataError) throw deleteDataError;
+
       const { error: deleteUploadsError } = await supabase.from('painting_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (deleteUploadsError) throw deleteUploadsError;
 
@@ -1065,6 +1074,9 @@ const App: React.FC = () => {
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
       // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteDataError } = await supabase.from('assembly_defect_type_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteDataError) throw deleteDataError;
+
       const { error: deleteUploadsError } = await supabase.from('assembly_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (deleteUploadsError) throw deleteUploadsError;
 
