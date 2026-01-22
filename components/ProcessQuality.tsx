@@ -885,7 +885,89 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             {defectTypeSubTab === 'injection' && (
               <div>
                 {defectTypeData && defectTypeData.length > 0 ? (
-                  <DefectTypeAnalysisSection defectTypeAnalysis={defectTypeAnalysis} title="사출 불량유형별 분석 현황" />
+                  <>
+                    <DefectTypeAnalysisSection defectTypeAnalysis={defectTypeAnalysis} title="사출 불량유형별 분석 현황" />
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">공정별 불량유형 분석</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">공정</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">총 불량 건수</th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">주요 불량유형 (상위 3개)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {defectTypeByProcess.map((process, index) => (
+                              <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{process.process}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(process.totalDefects)}</td>
+                                <td className="py-3 px-4 text-sm text-slate-700">
+                                  {process.defectTypes.slice(0, 3).map((dt, idx) => (
+                                    <span key={idx} className="inline-block mr-3">
+                                      {dt.defectType}: <span className="font-semibold text-purple-600">{formatNumber(dt.count)}</span> ({dt.percentage.toFixed(1)}%)
+                                    </span>
+                                  ))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형별 상세 현황</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">불량유형</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">발생 건수</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">비율</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {defectTypeAnalysis.map((type, index) => (
+                              <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{type.defectType}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(type.count)}</td>
+                                <td className="py-3 px-4 text-sm text-right">
+                                  <span className="font-semibold text-purple-600">{type.percentage.toFixed(2)}%</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형 업로드 이력</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">파일명</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">레코드 수</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">업로드 일시</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {defectTypeUploads.map((upload, index) => (
+                              <tr key={upload.id || index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{upload.filename}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(upload.recordCount)}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{new Date(upload.uploadDate).toLocaleString('ko-KR')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
@@ -907,7 +989,89 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             {defectTypeSubTab === 'painting' && (
               <div>
                 {paintingDefectTypeData && paintingDefectTypeData.length > 0 ? (
-                  <DefectTypeAnalysisSection defectTypeAnalysis={paintingDefectTypeAnalysis} title="도장 불량유형별 분석 현황" />
+                  <>
+                    <DefectTypeAnalysisSection defectTypeAnalysis={paintingDefectTypeAnalysis} title="도장 불량유형별 분석 현황" />
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">공정별 불량유형 분석</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">공정</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">총 불량 건수</th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">주요 불량유형 (상위 3개)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paintingDefectTypeByProcess.map((process, index) => (
+                              <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{process.process}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(process.totalDefects)}</td>
+                                <td className="py-3 px-4 text-sm text-slate-700">
+                                  {process.defectTypes.slice(0, 3).map((dt, idx) => (
+                                    <span key={idx} className="inline-block mr-3">
+                                      {dt.defectType}: <span className="font-semibold text-purple-600">{formatNumber(dt.count)}</span> ({dt.percentage.toFixed(1)}%)
+                                    </span>
+                                  ))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형별 상세 현황</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">불량유형</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">발생 건수</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">비율</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paintingDefectTypeAnalysis.map((type, index) => (
+                              <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{type.defectType}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(type.count)}</td>
+                                <td className="py-3 px-4 text-sm text-right">
+                                  <span className="font-semibold text-purple-600">{type.percentage.toFixed(2)}%</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형 업로드 이력</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">파일명</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">레코드 수</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">업로드 일시</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paintingDefectTypeUploads.map((upload, index) => (
+                              <tr key={upload.id || index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{upload.filename}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(upload.recordCount)}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{new Date(upload.uploadDate).toLocaleString('ko-KR')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
@@ -929,7 +1093,89 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             {defectTypeSubTab === 'assembly' && (
               <div>
                 {assemblyDefectTypeData && assemblyDefectTypeData.length > 0 ? (
-                  <DefectTypeAnalysisSection defectTypeAnalysis={assemblyDefectTypeAnalysis} title="조립 불량유형별 분석 현황" />
+                  <>
+                    <DefectTypeAnalysisSection defectTypeAnalysis={assemblyDefectTypeAnalysis} title="조립 불량유형별 분석 현황" />
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">공정별 불량유형 분석</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">공정</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">총 불량 건수</th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">주요 불량유형 (상위 3개)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {assemblyDefectTypeByProcess.map((process, index) => (
+                              <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{process.process}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(process.totalDefects)}</td>
+                                <td className="py-3 px-4 text-sm text-slate-700">
+                                  {process.defectTypes.slice(0, 3).map((dt, idx) => (
+                                    <span key={idx} className="inline-block mr-3">
+                                      {dt.defectType}: <span className="font-semibold text-purple-600">{formatNumber(dt.count)}</span> ({dt.percentage.toFixed(1)}%)
+                                    </span>
+                                  ))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형별 상세 현황</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">불량유형</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">발생 건수</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">비율</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {assemblyDefectTypeAnalysis.map((type, index) => (
+                              <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{type.defectType}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(type.count)}</td>
+                                <td className="py-3 px-4 text-sm text-right">
+                                  <span className="font-semibold text-purple-600">{type.percentage.toFixed(2)}%</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형 업로드 이력</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">파일명</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">레코드 수</th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">업로드 일시</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {assemblyDefectTypeUploads.map((upload, index) => (
+                              <tr key={upload.id || index} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-4 text-sm font-medium text-slate-900">{upload.filename}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(upload.recordCount)}</td>
+                                <td className="py-3 px-4 text-sm text-right text-slate-700">{new Date(upload.uploadDate).toLocaleString('ko-KR')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
@@ -1062,90 +1308,6 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         </div>
       </div>
 
-      {/* Defect Type Analysis Sections */}
-      {defectTypeData && defectTypeData.length > 0 && (
-        <>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">공정별 불량유형 분석</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">공정</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">총 불량 건수</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">주요 불량유형 (상위 3개)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {defectTypeByProcess.map((process, index) => (
-                    <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{process.process}</td>
-                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(process.totalDefects)}</td>
-                      <td className="py-3 px-4 text-sm text-slate-700">
-                        {process.defectTypes.slice(0, 3).map((dt, idx) => (
-                          <span key={idx} className="inline-block mr-3">
-                            {dt.defectType}: <span className="font-semibold text-purple-600">{formatNumber(dt.count)}</span> ({dt.percentage.toFixed(1)}%)
-                          </span>
-                        ))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형별 상세 현황</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">불량유형</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">발생 건수</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">비율</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {defectTypeAnalysis.map((type, index) => (
-                    <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{type.defectType}</td>
-                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(type.count)}</td>
-                      <td className="py-3 px-4 text-sm text-right">
-                        <span className="font-semibold text-purple-600">{type.percentage.toFixed(2)}%</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">불량유형 업로드 이력</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">파일명</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">레코드 수</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">업로드 일시</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {defectTypeUploads.map((upload, index) => (
-                    <tr key={upload.id || index} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{upload.filename}</td>
-                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(upload.recordCount)}</td>
-                      <td className="py-3 px-4 text-sm text-right text-slate-700">{new Date(upload.uploadDate).toLocaleString('ko-KR')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Defect Type Upload Modal */}
       {showDefectTypeUpload && (
