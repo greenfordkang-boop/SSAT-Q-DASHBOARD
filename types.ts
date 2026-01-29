@@ -76,10 +76,11 @@ export interface NCREntry {
   planDate: string;
   resultDate: string;
   effectivenessCheck: string;
+  validationCheck: string;
   status: NCRStatus;
   progressRate: number;
   remarks: string;
-  attachments: NCRAttachment[]; 
+  attachments: NCRAttachment[];
   eightDData?: EightDData;
 }
 

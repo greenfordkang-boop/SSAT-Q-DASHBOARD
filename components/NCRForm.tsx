@@ -26,6 +26,7 @@ const NCRForm: React.FC<NCRFormProps> = ({ initialData, onSave, onDelete, onCanc
     planDate: new Date().toISOString().split('T')[0],
     resultDate: '',
     effectivenessCheck: '',
+    validationCheck: '',
     status: 'Open',
     progressRate: 0,
     remarks: '',
@@ -121,6 +122,7 @@ const NCRForm: React.FC<NCRFormProps> = ({ initialData, onSave, onDelete, onCanc
           <div className="space-y-6">
             <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase">원인</label><textarea name="rootCause" value={formData.rootCause} onChange={handleChange} rows={2} className="w-full border p-3 rounded-xl text-sm" /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase">대책</label><textarea name="countermeasure" value={formData.countermeasure} onChange={handleChange} rows={2} className="w-full border p-3 rounded-xl text-sm" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase">유효성점검</label><textarea name="validationCheck" value={formData.validationCheck} onChange={handleChange} rows={2} className="w-full border p-3 rounded-xl text-sm" placeholder="유효성 점검 결과를 입력하세요" /></div>
             
             <div className="bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">첨부 파일 목록 (다중 가능)</p>

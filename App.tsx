@@ -214,6 +214,7 @@ const App: React.FC = () => {
         model: e.model, partName: e.part_name, partNo: e.part_no, defectContent: e.defect_content,
         outflowCause: e.outflow_cause, rootCause: e.root_cause, countermeasure: e.countermeasure,
         planDate: e.plan_date, resultDate: e.result_date, effectivenessCheck: e.effectiveness_check,
+        validationCheck: e.validation_check || '',
         status: e.status, progressRate: e.progress_rate, remarks: e.remarks,
         attachments: e.attachments || [], eightDData: e.eight_d_data
       })));
@@ -646,11 +647,11 @@ const App: React.FC = () => {
         month: entry.month, day: entry.day, source: entry.source, customer: entry.customer,
         model: entry.model, part_name: entry.partName, part_no: entry.partNo,
         defect_content: entry.defectContent, root_cause: entry.rootCause, countermeasure: entry.countermeasure,
-        plan_date: entry.planDate, result_date: entry.resultDate,
+        plan_date: entry.planDate, result_date: entry.resultDate, validation_check: entry.validationCheck || '',
         status: entry.status, progress_rate: entry.progressRate,
         attachments: entry.attachments || [], eight_d_data: entry.eightDData
       };
-      
+
       const { error } = await supabase.from('ncr_entries').upsert(dbPayload);
       
       if (error) {
@@ -675,7 +676,7 @@ const App: React.FC = () => {
         month: merged.month, day: merged.day, source: merged.source, customer: merged.customer,
         model: merged.model, part_name: merged.partName, part_no: merged.partNo,
         defect_content: merged.defectContent, root_cause: merged.rootCause, countermeasure: merged.countermeasure,
-        plan_date: merged.planDate, result_date: merged.resultDate,
+        plan_date: merged.planDate, result_date: merged.resultDate, validation_check: merged.validationCheck || '',
         status: merged.status, progress_rate: merged.progressRate,
         attachments: merged.attachments || [], eight_d_data: merged.eightDData
       };
