@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS ncr_entries (
   plan_date TEXT,
   result_date TEXT,
   effectiveness_check TEXT,
+  validation_check TEXT,
   status TEXT NOT NULL DEFAULT 'Open',
   progress_rate INTEGER DEFAULT 0,
   remarks TEXT,

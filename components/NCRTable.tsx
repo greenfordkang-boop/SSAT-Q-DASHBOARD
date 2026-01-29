@@ -58,19 +58,20 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
       </div>
 
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-[11px] text-left border-collapse min-w-[1950px] table-fixed">
+        <table className="w-full text-[11px] text-left border-collapse min-w-[2100px]">
           <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0 z-[60] border-b border-slate-200">
             <tr>
-              <th className="px-2 py-3 w-[50px] text-center">NO</th>
-              <th className="px-2 py-3 w-[80px] text-center">발생일자</th>
-              <th className="px-2 py-3 w-[120px]">고객사</th>
-              <th className="px-2 py-3 w-[120px]">모델</th>
-              <th className="px-2 py-3 w-[150px]">품명</th>
-              <th className="px-2 py-3 w-[300px]">불량 내용</th>
-              <th className="px-2 py-3 w-[120px] text-center">대책서 파일</th>
-              <th className="px-2 py-3 w-[400px]">원인 및 개선대책 (8D 동기화)</th>
-              <th className="px-2 py-3 w-[80px] text-center">상태</th>
-              <th className="px-2 py-3 w-[150px] text-center sticky right-0 bg-slate-100 border-l border-slate-300 z-[60] shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">관리도구</th>
+              <th className="px-2 py-3 whitespace-nowrap text-center">NO</th>
+              <th className="px-2 py-3 whitespace-nowrap text-center">발생일자</th>
+              <th className="px-2 py-3 whitespace-nowrap">고객사</th>
+              <th className="px-2 py-3 whitespace-nowrap">모델</th>
+              <th className="px-2 py-3 whitespace-nowrap">품명</th>
+              <th className="px-2 py-3 min-w-[200px]">불량 내용</th>
+              <th className="px-2 py-3 whitespace-nowrap text-center">대책서 파일</th>
+              <th className="px-2 py-3 min-w-[300px]">원인 및 개선대책 (8D 동기화)</th>
+              <th className="px-2 py-3 min-w-[150px]">유효성점검</th>
+              <th className="px-2 py-3 whitespace-nowrap text-center">상태</th>
+              <th className="px-2 py-3 whitespace-nowrap text-center sticky right-0 bg-slate-100 border-l border-slate-300 z-[60] shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">관리도구</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -107,6 +108,16 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
                       <span className="text-slate-600 leading-tight">{item.countermeasure || '수립 중'}</span>
                     </div>
                   </div>
+                </td>
+                <td className="px-2 py-3 whitespace-pre-wrap">
+                  {item.validationCheck ? (
+                    <div className="bg-purple-50/50 p-1.5 rounded border border-purple-100/50">
+                      <span className="text-purple-700 font-bold mr-1">[유효성]</span>
+                      <span className="text-slate-600 leading-tight">{item.validationCheck}</span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-300 text-center block">-</span>
+                  )}
                 </td>
                 <td className="px-2 py-3 text-center">{getStatusBadge(item.status)}</td>
                 <td className="px-2 py-3 text-center sticky right-0 bg-white border-l border-slate-200 z-[50] group-hover:bg-slate-50">
