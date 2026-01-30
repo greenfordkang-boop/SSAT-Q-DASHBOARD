@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { User } from '@supabase/supabase-js';
 import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload, PaintingDefectTypeData, PaintingDefectTypeUpload, AssemblyDefectTypeData, AssemblyDefectTypeUpload } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
@@ -11,7 +12,22 @@ import ProcessQuality from './components/ProcessQuality';
 import OutgoingQuality from './components/OutgoingQuality';
 import QuickResponse from './components/QuickResponse';
 import DatabaseSetupScreen from './components/DatabaseSetupScreen';
-import { supabase, saveSupabaseConfig, resetSupabaseConfig } from './lib/supabaseClient';
+import {
+  supabase,
+  saveSupabaseConfig,
+  resetSupabaseConfig,
+  signIn,
+  signUp,
+  signOut,
+  checkAuthSession,
+  isAdmin,
+  getAllUsers,
+  approveUser,
+  rejectUser,
+  ADMIN_EMAIL,
+  SECURITY_CONFIG,
+  UserProfile
+} from './lib/supabaseClient';
 import { checkTableExists } from './lib/dbMigration';
 import * as XLSX from 'xlsx';
 
@@ -23,12 +39,30 @@ const TABS: DashboardTab[] = [
   { id: 'process', label: '공정품질' },
   { id: 'outgoing', label: '출하품질' },
   { id: 'quickresponse', label: '신속대응' },
+  { id: 'admin', label: '관리자' },
 ];
 
 const App: React.FC = () => {
+  // ==================== 인증 상태 ====================
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // 로그인 폼 상태
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [signUpMessage, setSignUpMessage] = useState<string | null>(null);
+
+  // 관리자 패널 상태
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+
+  // 세션 타이머
+  const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
   
   const [ncrData, setNcrData] = useState<NCREntry[]>([]);
   const [customerMetrics, setCustomerMetrics] = useState<CustomerMetric[]>([]);
@@ -59,45 +93,170 @@ const App: React.FC = () => {
   const [needsDatabaseSetup, setNeedsDatabaseSetup] = useState(false);
   const [supabaseUrl, setSupabaseUrl] = useState('');
 
+  // ==================== 세션 타이머 관리 ====================
+  const resetSessionTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+
+    if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+
+    warningTimeoutRef.current = setTimeout(() => {
+      alert('세션이 5분 후 만료됩니다. 계속 사용하시려면 화면을 클릭해주세요.');
+    }, SECURITY_CONFIG.SESSION_TIMEOUT - SECURITY_CONFIG.WARNING_BEFORE);
+
+    sessionTimeoutRef.current = setTimeout(async () => {
+      alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+      await handleLogout();
+    }, SECURITY_CONFIG.SESSION_TIMEOUT);
+  }, []);
+
+  // 활동 감지 이벤트 리스너
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleActivity = () => resetSessionTimer();
+    SECURITY_CONFIG.ACTIVITY_EVENTS.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    resetSessionTimer();
+
+    return () => {
+      SECURITY_CONFIG.ACTIVITY_EVENTS.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    };
+  }, [isAuthenticated, resetSessionTimer]);
+
+  // ==================== 초기 인증 상태 확인 ====================
+  useEffect(() => {
+    const initAuth = async () => {
+      setIsAuthLoading(true);
+      try {
+        const { user, profile } = await checkAuthSession();
+        if (user && profile) {
+          // 관리자가 아닌 경우 승인 확인
+          if (user.email !== ADMIN_EMAIL && !profile.approved) {
+            await signOut();
+            setIsAuthenticated(false);
+          } else {
+            setCurrentUser(user);
+            setUserProfile(profile);
+            setIsAuthenticated(true);
+            fetchAllData();
+          }
+        }
+      } catch (err) {
+        console.error('인증 확인 오류:', err);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    initAuth();
+
     // 로컬 스토리지에서 현재 설정값을 가져와 모달 초기값으로 설정
-    const storedUrl = localStorage.getItem('supabase_url_v5'); // v5 key check
+    const storedUrl = localStorage.getItem('supabase_url_v5');
     const storedKey = localStorage.getItem('supabase_key_v5');
     if (storedUrl) {
       setConfigUrl(storedUrl);
       setSupabaseUrl(storedUrl);
     } else {
-      // 기본 URL 사용
       setSupabaseUrl('https://xjjsqyawvojybuyrehrr.supabase.co');
     }
     if (storedKey) setConfigKey(storedKey);
-
-    const authStatus = sessionStorage.getItem('isAuth');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-      fetchAllData();
-    }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // ==================== 로그인 처리 ====================
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'SSAT2026') {
+    setLoginError(null);
+
+    const result = await signIn(email, password);
+    if (result.success && result.user) {
+      setCurrentUser(result.user);
+      const { profile } = await checkAuthSession();
+      setUserProfile(profile);
       setIsAuthenticated(true);
-      sessionStorage.setItem('isAuth', 'true');
       fetchAllData();
+
+      // 관리자인 경우 사용자 목록 로드
+      if (result.isAdmin) {
+        const users = await getAllUsers();
+        setAllUsers(users);
+      }
     } else {
-      setLoginError(true);
-      setTimeout(() => setLoginError(false), 2000);
+      setLoginError(result.error || '로그인 실패');
     }
   };
 
-  const handleLogout = () => {
+  // ==================== 회원가입 처리 ====================
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setSignUpMessage(null);
+
+    if (password.length < 6) {
+      setLoginError('비밀번호는 6자 이상이어야 합니다.');
+      return;
+    }
+
+    const result = await signUp(email, password);
+    if (result.success) {
+      if (result.error) {
+        setSignUpMessage(result.error);
+      } else {
+        setSignUpMessage('회원가입이 완료되었습니다. 로그인해주세요.');
+      }
+      setIsSignUpMode(false);
+      setPassword('');
+    } else {
+      setLoginError(result.error || '회원가입 실패');
+    }
+  };
+
+  // ==================== 로그아웃 처리 ====================
+  const handleLogout = async () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
+      await signOut();
       setIsAuthenticated(false);
-      sessionStorage.removeItem('isAuth');
+      setCurrentUser(null);
+      setUserProfile(null);
+      setEmail('');
       setPassword('');
     }
   };
+
+  // ==================== 관리자: 사용자 승인 ====================
+  const handleApproveUser = async (userId: string) => {
+    const success = await approveUser(userId);
+    if (success) {
+      const users = await getAllUsers();
+      setAllUsers(users);
+      alert('사용자가 승인되었습니다.');
+    }
+  };
+
+  // ==================== 관리자: 사용자 거부 ====================
+  const handleRejectUser = async (userId: string) => {
+    if (window.confirm('이 사용자를 거부하시겠습니까?')) {
+      const success = await rejectUser(userId);
+      if (success) {
+        const users = await getAllUsers();
+        setAllUsers(users);
+        alert('사용자가 거부되었습니다.');
+      }
+    }
+  };
+
+  // ==================== 관리자 탭 선택 시 사용자 목록 로드 ====================
+  useEffect(() => {
+    if (activeTab === 'admin' && isAdmin(currentUser?.email)) {
+      getAllUsers().then(setAllUsers);
+    }
+  }, [activeTab, currentUser?.email]);
 
   const handleConfigSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1244,22 +1403,82 @@ const App: React.FC = () => {
     );
   }
 
+  // ==================== 로딩 화면 ====================
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a1128]">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // ==================== 로그인 화면 ====================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0a1128] text-white p-6">
         <div className="w-full max-w-md bg-slate-900/50 p-10 rounded-3xl border border-slate-800 shadow-2xl backdrop-blur-md">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-black mb-2 tracking-tight">품질관리현황 시스템</h1>
-            <p className="text-slate-500 text-sm">Access Password Required</p>
+            <h1 className="text-3xl font-black mb-2 tracking-tight">신성오토텍</h1>
+            <p className="text-emerald-400 text-lg font-bold">품질 대시보드</p>
           </div>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <input 
-              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className={`w-full bg-black/40 border ${loginError ? 'border-rose-500 animate-shake' : 'border-slate-700'} rounded-2xl p-4 text-center text-xl font-bold tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
-            />
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black transition-all shadow-lg active:scale-[0.98]">접속</button>
+
+          {signUpMessage && (
+            <div className="mb-4 p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-xl text-emerald-400 text-sm text-center">
+              {signUpMessage}
+            </div>
+          )}
+
+          {loginError && (
+            <div className="mb-4 p-3 bg-rose-500/20 border border-rose-500/50 rounded-xl text-rose-400 text-sm text-center animate-shake">
+              {loginError}
+            </div>
+          )}
+
+          <form onSubmit={isSignUpMode ? handleSignUp : handleLogin} className="space-y-4">
+            <div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="이메일"
+                className="w-full bg-black/40 border border-slate-700 rounded-xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                required
+              />
+            </div>
+            <div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호"
+                className="w-full bg-black/40 border border-slate-700 rounded-xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 py-4 rounded-xl font-black transition-all shadow-lg active:scale-[0.98]"
+            >
+              {isSignUpMode ? '계정 등록' : '시스템 접속'}
+            </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setIsSignUpMode(!isSignUpMode);
+                setLoginError(null);
+                setSignUpMessage(null);
+              }}
+              className="text-slate-400 hover:text-white transition-colors text-sm"
+            >
+              {isSignUpMode ? '← 로그인으로 돌아가기' : '계정 등록 →'}
+            </button>
+          </div>
+
+          <div className="mt-6 text-center text-slate-600 text-xs">
+            🔒 Supabase Auth 보안 인증
+          </div>
         </div>
       </div>
     );
@@ -1270,21 +1489,29 @@ const App: React.FC = () => {
       <nav className="bg-[#0a1128] text-white px-6 py-2 flex items-center justify-between sticky top-0 z-[100] border-b border-slate-800">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded-lg"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>
-            <h1 className="text-lg font-black tracking-tight border-r border-slate-700 pr-4 mr-2">품질관리현황</h1>
+            <h1 className="text-lg font-black tracking-tight border-r border-slate-700 pr-4 mr-2">
+              <span className="text-emerald-400">신성오토텍</span> 품질
+            </h1>
           </div>
           <div className="flex gap-1">
-            {TABS.map(tab => (
-              <button 
+            {TABS.filter(tab => tab.id !== 'admin' || isAdmin(currentUser?.email)).map(tab => (
+              <button
                 key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
         </div>
-        <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 transition-colors"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" /></svg></button>
+        <div className="flex items-center gap-4">
+          <span className="text-slate-400 text-sm">{currentUser?.email}</span>
+          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" />
+            </svg>
+          </button>
+        </div>
       </nav>
 
       <main className="flex-1 p-6 max-w-[1600px] mx-auto w-full">
@@ -1307,6 +1534,76 @@ const App: React.FC = () => {
             {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} defectTypeData={processDefectTypeData} defectTypeUploads={processDefectTypeUploads} onUploadDefectType={handleUploadProcessDefectType} paintingDefectTypeData={paintingDefectTypeData} paintingDefectTypeUploads={paintingDefectTypeUploads} onUploadPaintingDefectType={handleUploadPaintingDefectType} assemblyDefectTypeData={assemblyDefectTypeData} assemblyDefectTypeUploads={assemblyDefectTypeUploads} onUploadAssemblyDefectType={handleUploadAssemblyDefectType} isLoading={isLoading} />}
             {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
             {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
+
+            {/* ==================== 관리자 패널 ==================== */}
+            {activeTab === 'admin' && isAdmin(currentUser?.email) && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h2 className="text-xl font-black text-slate-800 mb-6">사용자 관리</h2>
+
+                  {/* 승인 대기 중인 사용자 */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-bold text-amber-600 mb-4">⏳ 승인 대기 중</h3>
+                    <div className="space-y-3">
+                      {allUsers.filter(u => !u.approved && u.is_active).length === 0 ? (
+                        <p className="text-slate-500 text-sm">승인 대기 중인 사용자가 없습니다.</p>
+                      ) : (
+                        allUsers.filter(u => !u.approved && u.is_active).map(user => (
+                          <div key={user.id} className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                            <div>
+                              <p className="font-bold text-slate-800">{user.email}</p>
+                              <p className="text-sm text-slate-500">가입: {user.created_at ? new Date(user.created_at).toLocaleString('ko-KR') : '-'}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleApproveUser(user.id)}
+                                className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors"
+                              >
+                                승인
+                              </button>
+                              <button
+                                onClick={() => handleRejectUser(user.id)}
+                                className="px-4 py-2 bg-rose-600 text-white rounded-lg font-bold hover:bg-rose-700 transition-colors"
+                              >
+                                거부
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 승인된 사용자 */}
+                  <div>
+                    <h3 className="text-lg font-bold text-emerald-600 mb-4">✓ 승인된 사용자</h3>
+                    <div className="space-y-3">
+                      {allUsers.filter(u => u.approved).map(user => (
+                        <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                          <div>
+                            <p className="font-bold text-slate-800">
+                              {user.email}
+                              {user.email === ADMIN_EMAIL && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">관리자</span>}
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              마지막 로그인: {user.last_login ? new Date(user.last_login).toLocaleString('ko-KR') : '없음'}
+                            </p>
+                          </div>
+                          {user.email !== ADMIN_EMAIL && (
+                            <button
+                              onClick={() => handleRejectUser(user.id)}
+                              className="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg font-bold hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                            >
+                              비활성화
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
