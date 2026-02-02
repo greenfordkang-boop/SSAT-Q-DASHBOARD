@@ -17,7 +17,9 @@ import type {
   AssemblyDefectTypeData,
   AssemblyDefectTypeUpload,
   DefectTypeAnalysis,
-  DefectTypeByProcess
+  DefectTypeByProcess,
+  PartsPriceData,
+  PartsPriceUpload
 } from '../types';
 
 interface ProcessQualityProps {
@@ -33,6 +35,9 @@ interface ProcessQualityProps {
   assemblyDefectTypeData: AssemblyDefectTypeData[];
   assemblyDefectTypeUploads: AssemblyDefectTypeUpload[];
   onUploadAssemblyDefectType: (file: File) => Promise<void>;
+  partsPriceData: PartsPriceData[];
+  partsPriceUploads: PartsPriceUpload[];
+  onUploadPartsPrice: (file: File) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -50,24 +55,28 @@ const PART_TYPE_ORDER = ["사출", "도장", "인쇄", "조립", "도금", "레�
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f97316', '#ef4444', '#6366f1', '#14b8a6'];
 
-export default function ProcessQuality({ data, uploads, onUpload, defectTypeData, defectTypeUploads, onUploadDefectType, paintingDefectTypeData, paintingDefectTypeUploads, onUploadPaintingDefectType, assemblyDefectTypeData, assemblyDefectTypeUploads, onUploadAssemblyDefectType, isLoading }: ProcessQualityProps) {
+export default function ProcessQuality({ data, uploads, onUpload, defectTypeData, defectTypeUploads, onUploadDefectType, paintingDefectTypeData, paintingDefectTypeUploads, onUploadPaintingDefectType, assemblyDefectTypeData, assemblyDefectTypeUploads, onUploadAssemblyDefectType, partsPriceData, partsPriceUploads, onUploadPartsPrice, isLoading }: ProcessQualityProps) {
   const [showUpload, setShowUpload] = useState(false);
   const [showDefectTypeUpload, setShowDefectTypeUpload] = useState(false);
   const [showPaintingDefectTypeUpload, setShowPaintingDefectTypeUpload] = useState(false);
   const [showAssemblyDefectTypeUpload, setShowAssemblyDefectTypeUpload] = useState(false);
+  const [showPartsPriceUpload, setShowPartsPriceUpload] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingDefectType, setIsDraggingDefectType] = useState(false);
   const [isDraggingPaintingDefectType, setIsDraggingPaintingDefectType] = useState(false);
   const [isDraggingAssemblyDefectType, setIsDraggingAssemblyDefectType] = useState(false);
+  const [isDraggingPartsPrice, setIsDraggingPartsPrice] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [defectTypeFile, setDefectTypeFile] = useState<File | null>(null);
   const [paintingDefectTypeFile, setPaintingDefectTypeFile] = useState<File | null>(null);
   const [assemblyDefectTypeFile, setAssemblyDefectTypeFile] = useState<File | null>(null);
+  const [partsPriceFile, setPartsPriceFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingDefectType, setUploadingDefectType] = useState(false);
   const [uploadingPaintingDefectType, setUploadingPaintingDefectType] = useState(false);
   const [uploadingAssemblyDefectType, setUploadingAssemblyDefectType] = useState(false);
-  const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries' | 'defectType'>('partType');
+  const [uploadingPartsPrice, setUploadingPartsPrice] = useState(false);
+  const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries' | 'defectType' | 'detail'>('partType');
   const [defectTypeSubTab, setDefectTypeSubTab] = useState<'injection' | 'painting' | 'assembly'>('injection');
 
   const hasData = data && data.length > 0;
@@ -580,6 +589,66 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     }
   }, [assemblyDefectTypeFile, onUploadAssemblyDefectType]);
 
+  // Parts Price Upload Handlers
+  const handleDragOverPartsPrice = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingPartsPrice(true); }, []);
+  const handleDragLeavePartsPrice = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingPartsPrice(false); }, []);
+  const handleDropPartsPrice = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingPartsPrice(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls'))) {
+      setPartsPriceFile(droppedFile);
+    } else {
+      alert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+    }
+  }, []);
+
+  const handleFileSelectPartsPrice = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) setPartsPriceFile(selectedFile);
+  }, []);
+
+  const handleUploadPartsPrice = useCallback(async () => {
+    if (!partsPriceFile) return;
+    setUploadingPartsPrice(true);
+    try {
+      await onUploadPartsPrice(partsPriceFile);
+      setPartsPriceFile(null);
+      setShowPartsPriceUpload(false);
+    } catch (error: any) {
+      alert('업로드 실패: ' + (error.message || '알 수 없는 오류'));
+    } finally {
+      setUploadingPartsPrice(false);
+    }
+  }, [partsPriceFile, onUploadPartsPrice]);
+
+  // Create price lookup map for calculating defect amount
+  const priceLookup = useMemo(() => {
+    const map = new Map<string, number>();
+    partsPriceData.forEach(item => {
+      if (item.partName) {
+        map.set(item.partName, item.unitPrice);
+      }
+      if (item.partCode) {
+        map.set(item.partCode, item.unitPrice);
+      }
+    });
+    return map;
+  }, [partsPriceData]);
+
+  // Calculate defect amount for each product based on unit price
+  const productDataWithDefectAmount = useMemo(() => {
+    return productNameData.map(item => {
+      const unitPrice = priceLookup.get(item.productName) || 0;
+      const calculatedDefectAmount = item.totalDefects * unitPrice;
+      return {
+        ...item,
+        unitPrice,
+        calculatedDefectAmount,
+      };
+    });
+  }, [productNameData, priceLookup]);
+
   if (!hasData) {
     return (
       <div className="min-h-[600px] flex items-center justify-center">
@@ -655,10 +724,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           <h2 className="text-3xl font-bold text-slate-900">공정불량 현황 대시보드</h2>
           <p className="text-slate-600 mt-1">실시간 공정불량 데이터 분석 및 모니터링</p>
         </div>
-        <button onClick={() => setShowUpload(!showUpload)} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-          데이터 업로드
-        </button>
+        <div className="flex gap-3">
+          <button onClick={() => setShowPartsPriceUpload(!showPartsPriceUpload)} className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            부품단가표 업로드
+          </button>
+          <button onClick={() => setShowUpload(!showUpload)} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            데이터 업로드
+          </button>
+        </div>
       </div>
       {showUpload && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -711,6 +786,71 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
                   </>
                 )}
               </button>
+            </div>
+          )}
+        </div>
+      )}
+      {showPartsPriceUpload && (
+        <div className="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">부품단가표 업로드</h3>
+          <p className="text-sm text-slate-600 mb-4">부품단가표를 업로드하면 불량금액이 자동으로 산출됩니다. (불량수량 x 단가)</p>
+          <div onDragOver={handleDragOverPartsPrice} onDragLeave={handleDragLeavePartsPrice} onDrop={handleDropPartsPrice} className={'border-2 border-dashed rounded-xl p-12 text-center transition-all ' + (isDraggingPartsPrice ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400 hover:bg-slate-50')}>
+            <div className="flex flex-col items-center gap-4">
+              {partsPriceFile ? (
+                <>
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-slate-900">{partsPriceFile.name}</p>
+                    <p className="text-sm text-slate-500">{(partsPriceFile.size / 1024).toFixed(2)} KB</p>
+                  </div>
+                  <button onClick={() => setPartsPriceFile(null)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">다른 파일 선택</button>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-slate-900 mb-1">부품단가표 파일을 드래그하거나 클릭하여 선택하세요</p>
+                    <p className="text-sm text-slate-500">엑셀 파일(.xlsx, .xls)만 지원됩니다</p>
+                    <p className="text-xs text-slate-400 mt-2">필수 컬럼: 품명(또는 품목명), 단가(또는 부품단가)</p>
+                  </div>
+                  <label htmlFor="file-input-parts-price">
+                    <button onClick={() => document.getElementById('file-input-parts-price')?.click()} className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                      파일 선택
+                    </button>
+                  </label>
+                  <input id="file-input-parts-price" type="file" accept=".xlsx,.xls" onChange={handleFileSelectPartsPrice} className="hidden" />
+                </>
+              )}
+            </div>
+          </div>
+          {partsPriceFile && (
+            <div className="flex justify-end mt-4">
+              <button onClick={handleUploadPartsPrice} disabled={uploadingPartsPrice} className={'px-6 py-3 rounded-lg font-semibold flex items-center gap-2 ' + (uploadingPartsPrice ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700')}>
+                {uploadingPartsPrice ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    업로드 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    업로드
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {partsPriceData && partsPriceData.length > 0 && (
+            <div className="mt-4 p-4 bg-emerald-50 rounded-lg">
+              <p className="text-sm text-emerald-700 font-semibold">현재 등록된 부품단가: {partsPriceData.length}개</p>
+              {partsPriceUploads && partsPriceUploads.length > 0 && (
+                <p className="text-xs text-emerald-600 mt-1">마지막 업로드: {new Date(partsPriceUploads[0].uploadDate).toLocaleString('ko-KR')}</p>
+              )}
             </div>
           )}
         </div>
@@ -813,6 +953,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             <button onClick={() => setActiveTab('partType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'partType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>공정별 분석</button>
             <button onClick={() => setActiveTab('timeSeries')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'timeSeries' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>추이 분석</button>
             <button onClick={() => setActiveTab('defectType')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'defectType' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>불량유형 분석</button>
+            <button onClick={() => setActiveTab('detail')} className={'px-4 py-2 font-semibold transition-colors ' + (activeTab === 'detail' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600 hover:text-slate-900')}>상세내역</button>
           </div>
           {activeTab === 'defectType' && (
             <button onClick={() => {
@@ -1203,6 +1344,70 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             )}
           </div>
         )}
+        {activeTab === 'detail' && (
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">품목별 상세 내역</h3>
+            <p className="text-sm text-slate-600 mb-6">품목별 불량수량과 부품단가 기반 불량금액을 확인합니다.</p>
+
+            {partsPriceData.length === 0 && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-700">
+                  <strong>안내:</strong> 부품단가표가 등록되지 않았습니다. 부품단가표를 업로드하면 불량금액이 자동으로 산출됩니다.
+                </p>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">품명</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">단가</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액 (수량x단가)</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productDataWithDefectAmount.filter(p => p.totalDefects > 0).map((product, index) => (
+                    <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-3 px-4 text-sm font-medium text-slate-900">{product.productName}</td>
+                      <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
+                      <td className="py-3 px-4 text-sm text-right font-semibold text-orange-600">{formatNumber(product.totalDefects)}</td>
+                      <td className="py-3 px-4 text-sm text-right text-slate-700">
+                        {product.unitPrice > 0 ? formatCurrency(product.unitPrice) : <span className="text-slate-400">-</span>}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-right font-semibold text-red-600">
+                        {product.calculatedDefectAmount > 0 ? formatCurrency(product.calculatedDefectAmount) : <span className="text-slate-400">-</span>}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-right">
+                        <span className={'font-semibold ' + (product.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{product.defectRate.toFixed(2)}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 font-bold">
+                    <td className="py-3 px-4 text-sm text-slate-900">합계</td>
+                    <td className="py-3 px-4 text-sm text-right text-slate-900">{formatNumber(productDataWithDefectAmount.reduce((sum, p) => sum + p.totalProduction, 0))}</td>
+                    <td className="py-3 px-4 text-sm text-right text-orange-600">{formatNumber(productDataWithDefectAmount.reduce((sum, p) => sum + p.totalDefects, 0))}</td>
+                    <td className="py-3 px-4 text-sm text-right text-slate-400">-</td>
+                    <td className="py-3 px-4 text-sm text-right text-red-600">{formatCurrency(productDataWithDefectAmount.reduce((sum, p) => sum + p.calculatedDefectAmount, 0))}</td>
+                    <td className="py-3 px-4 text-sm text-right text-slate-400">-</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {partsPriceData.length > 0 && (
+              <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <h4 className="text-sm font-bold text-emerald-800 mb-2">등록된 부품단가표 현황</h4>
+                <p className="text-sm text-emerald-700">총 {partsPriceData.length}개 품목의 단가가 등록되어 있습니다.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900 mb-4">고객사별 불량 현황</h3>
@@ -1264,7 +1469,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900 mb-4">품명별 불량 현황</h3>
-        <p className="text-sm text-slate-600 mb-2">불량률 0.1% 이하는 표시하지 않음</p>
+        <p className="text-sm text-slate-600 mb-2">불량률 0.1% 이하는 표시하지 않음 {partsPriceData.length > 0 && <span className="text-emerald-600">(부품단가표 적용됨)</span>}</p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -1273,19 +1478,23 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
                 <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
                 <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
                 <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액 (원본)</th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-emerald-700">불량금액 (산출)</th>
               </tr>
             </thead>
             <tbody>
-              {productNameData.filter(product => product.defectRate > 0.1).map((product, index) => (
+              {productDataWithDefectAmount.filter(product => product.defectRate > 0.1).map((product, index) => (
                 <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm font-medium text-slate-900">{product.productName}</td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
-                  <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalDefects)}</td>
+                  <td className="py-3 px-4 text-sm text-right font-semibold text-orange-600">{formatNumber(product.totalDefects)}</td>
                   <td className="py-3 px-4 text-sm text-right">
                     <span className={'font-semibold ' + (product.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{product.defectRate.toFixed(2)}%</span>
                   </td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatCurrency(product.totalAmount)}</td>
+                  <td className="py-3 px-4 text-sm text-right font-semibold text-emerald-600">
+                    {product.calculatedDefectAmount > 0 ? formatCurrency(product.calculatedDefectAmount) : <span className="text-slate-400">-</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
-import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload, PaintingDefectTypeData, PaintingDefectTypeUpload, AssemblyDefectTypeData, AssemblyDefectTypeUpload } from './types';
+import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload, PaintingDefectTypeData, PaintingDefectTypeUpload, AssemblyDefectTypeData, AssemblyDefectTypeUpload, PartsPriceData, PartsPriceUpload } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
@@ -77,6 +77,8 @@ const App: React.FC = () => {
   const [paintingDefectTypeUploads, setPaintingDefectTypeUploads] = useState<PaintingDefectTypeUpload[]>([]);
   const [assemblyDefectTypeData, setAssemblyDefectTypeData] = useState<AssemblyDefectTypeData[]>([]);
   const [assemblyDefectTypeUploads, setAssemblyDefectTypeUploads] = useState<AssemblyDefectTypeUpload[]>([]);
+  const [partsPriceData, setPartsPriceData] = useState<PartsPriceData[]>([]);
+  const [partsPriceUploads, setPartsPriceUploads] = useState<PartsPriceUpload[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
   const [showForm, setShowForm] = useState(false);
@@ -693,6 +695,48 @@ const App: React.FC = () => {
         createdAt: u.created_at
       }));
       setAssemblyDefectTypeUploads(typedAssemblyDefectTypeUploads);
+
+      // 14. 부품단가 데이터 가져오기
+      const { data: priceData, error: priceError } = await supabase
+        .from('parts_price_data')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (priceError) {
+        console.warn("Parts Price Data Fetch Warning:", priceError.message);
+      }
+
+      const typedPartsPriceData = (priceData || []).map((p: any) => ({
+        id: p.id,
+        uploadId: p.upload_id,
+        partCode: p.part_code,
+        partName: p.part_name,
+        unitPrice: Number(p.unit_price || 0),
+        customer: p.customer,
+        vehicleModel: p.vehicle_model,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      }));
+      setPartsPriceData(typedPartsPriceData);
+
+      // 15. 부품단가 업로드 이력 가져오기
+      const { data: priceUploads, error: priceUploadError } = await supabase
+        .from('parts_price_uploads')
+        .select('*')
+        .order('upload_date', { ascending: false });
+
+      if (priceUploadError) {
+        console.warn("Parts Price Upload Fetch Warning:", priceUploadError.message);
+      }
+
+      const typedPartsPriceUploads = (priceUploads || []).map((u: any) => ({
+        id: u.id,
+        filename: u.filename,
+        recordCount: Number(u.record_count || 0),
+        uploadDate: u.upload_date,
+        createdAt: u.created_at
+      }));
+      setPartsPriceUploads(typedPartsPriceUploads);
 
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
@@ -1334,6 +1378,68 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUploadPartsPrice = async (file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
+
+      // 기존 데이터 모두 삭제 (중복 누적 방지)
+      const { error: deleteDataError } = await supabase.from('parts_price_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteDataError) throw deleteDataError;
+
+      const { error: deleteUploadsError } = await supabase.from('parts_price_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteUploadsError) throw deleteUploadsError;
+
+      const { data: uploadRecord, error: uploadError } = await supabase.from('parts_price_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      if (uploadError) throw uploadError;
+
+      // Helper function to safely convert to number, defaulting to 0 if NaN
+      const safeNumber = (value: any): number => {
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+      };
+
+      // Helper function to find column value with flexible matching
+      const findColumnValue = (row: any, ...possibleNames: string[]): any => {
+        for (const name of possibleNames) {
+          if (row[name] !== undefined) return row[name];
+        }
+        const keys = Object.keys(row);
+        for (const name of possibleNames) {
+          const normalizedName = name.replace(/\[.*?\]/g, '').trim();
+          for (const key of keys) {
+            const normalizedKey = key.replace(/\[.*?\]/g, '').trim();
+            if (normalizedKey === normalizedName) return row[key];
+          }
+        }
+        return undefined;
+      };
+
+      const processedData = jsonData.map((row: any) => {
+        return {
+          upload_id: uploadRecord.id,
+          part_code: findColumnValue(row, '품번', '부품번호', '자재번호', 'Part Code', 'partCode') || null,
+          part_name: String(findColumnValue(row, '품명', '품목명', '부품명', '제품명', 'Part Name', 'partName') || ''),
+          unit_price: safeNumber(findColumnValue(row, '단가', '단위단가', '부품단가', 'Unit Price', 'unitPrice', '금액') || 0),
+          customer: findColumnValue(row, '고객사', '거래처', 'Customer') || null,
+          vehicle_model: findColumnValue(row, '품종', '차종', '모델', 'Vehicle Model', 'vehicleModel') || null,
+        };
+      });
+
+      const { error: dataError } = await supabase.from('parts_price_data').insert(processedData);
+      if (dataError) throw dataError;
+
+      await fetchAllData();
+      alert('✅ 부품단가표 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+    } catch (e: any) {
+      handleError(e, "부품단가표 업로드");
+      throw e;
+    }
+  };
+
   // DB 초기 설정 화면
   if (needsDatabaseSetup && isAuthenticated) {
     return (
@@ -1531,7 +1637,7 @@ const App: React.FC = () => {
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
             {activeTab === 'incoming' && <IncomingQuality metrics={supplierMetrics} onSaveMetric={handleSaveSupplierMetrics} />}
-            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} defectTypeData={processDefectTypeData} defectTypeUploads={processDefectTypeUploads} onUploadDefectType={handleUploadProcessDefectType} paintingDefectTypeData={paintingDefectTypeData} paintingDefectTypeUploads={paintingDefectTypeUploads} onUploadPaintingDefectType={handleUploadPaintingDefectType} assemblyDefectTypeData={assemblyDefectTypeData} assemblyDefectTypeUploads={assemblyDefectTypeUploads} onUploadAssemblyDefectType={handleUploadAssemblyDefectType} isLoading={isLoading} />}
+            {activeTab === 'process' && <ProcessQuality data={processQualityData} uploads={processQualityUploads} onUpload={handleUploadProcessQuality} defectTypeData={processDefectTypeData} defectTypeUploads={processDefectTypeUploads} onUploadDefectType={handleUploadProcessDefectType} paintingDefectTypeData={paintingDefectTypeData} paintingDefectTypeUploads={paintingDefectTypeUploads} onUploadPaintingDefectType={handleUploadPaintingDefectType} assemblyDefectTypeData={assemblyDefectTypeData} assemblyDefectTypeUploads={assemblyDefectTypeUploads} onUploadAssemblyDefectType={handleUploadAssemblyDefectType} partsPriceData={partsPriceData} partsPriceUploads={partsPriceUploads} onUploadPartsPrice={handleUploadPartsPrice} isLoading={isLoading} />}
             {activeTab === 'outgoing' && <OutgoingQuality metrics={outgoingMetrics} onSaveMetric={handleSaveOutgoingMetrics} />}
             {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
 
