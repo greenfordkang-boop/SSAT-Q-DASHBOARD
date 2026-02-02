@@ -700,7 +700,8 @@ const App: React.FC = () => {
       const { data: priceData, error: priceError } = await supabase
         .from('parts_price_data')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10000);
 
       if (priceError) {
         console.warn("Parts Price Data Fetch Warning:", priceError.message);

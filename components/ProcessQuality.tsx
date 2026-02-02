@@ -663,24 +663,46 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     }
   }, [partsPriceFile, onUploadPartsPrice]);
 
+  // 품명 정규화 함수 (대소문자 무시, 특수문자 제거)
+  const normalizePartName = useCallback((name: string): string => {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .replace(/[\s_\-\.\/\\]+/g, '') // 공백, 언더스코어, 하이픈 등 제거
+      .replace(/[^\w가-힣]/g, ''); // 알파벳, 숫자, 한글만 남김
+  }, []);
+
   // Create price lookup map for calculating defect amount
   const priceLookup = useMemo(() => {
-    const map = new Map<string, number>();
+    const exactMap = new Map<string, number>(); // 정확한 매칭
+    const normalizedMap = new Map<string, number>(); // 정규화된 매칭
+
     partsPriceData.forEach(item => {
       if (item.partName) {
-        map.set(item.partName, item.unitPrice);
+        exactMap.set(item.partName, item.unitPrice);
+        normalizedMap.set(normalizePartName(item.partName), item.unitPrice);
       }
       if (item.partCode) {
-        map.set(item.partCode, item.unitPrice);
+        exactMap.set(item.partCode, item.unitPrice);
+        normalizedMap.set(normalizePartName(item.partCode), item.unitPrice);
       }
     });
-    return map;
-  }, [partsPriceData]);
+
+    return { exactMap, normalizedMap };
+  }, [partsPriceData, normalizePartName]);
 
   // Calculate defect amount for each product based on unit price
   const productDataWithDefectAmount = useMemo(() => {
     return productNameData.map(item => {
-      const unitPrice = priceLookup.get(item.productName) || 0;
+      // 1. 정확한 매칭 시도
+      let unitPrice = priceLookup.exactMap.get(item.productName) || 0;
+
+      // 2. 정확한 매칭 실패 시, 정규화된 매칭 시도
+      if (unitPrice === 0) {
+        const normalizedProductName = normalizePartName(item.productName);
+        unitPrice = priceLookup.normalizedMap.get(normalizedProductName) || 0;
+      }
+
       const calculatedDefectAmount = item.totalDefects * unitPrice;
       return {
         ...item,
@@ -688,7 +710,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         calculatedDefectAmount,
       };
     });
-  }, [productNameData, priceLookup]);
+  }, [productNameData, priceLookup, normalizePartName]);
 
   if (!hasData) {
     return (
