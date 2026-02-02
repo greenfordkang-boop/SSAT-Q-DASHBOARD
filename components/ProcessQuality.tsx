@@ -149,6 +149,47 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     return data;
   }, [data, filterMonth]);
 
+  // 품명 정규화 함수 (kpiData 계산 전에 정의)
+  const normalizeForKpi = useCallback((name: string): string => {
+    if (!name) return '';
+    return name.toLowerCase().trim().replace(/[\s_\-\.\/\\()（）\[\]【】'",;:]+/g, '').replace(/[^\w가-힣]/g, '');
+  }, []);
+
+  // 부품단가 룩업 (kpiData 계산 전에 정의)
+  const priceMap = useMemo(() => {
+    const exactMap = new Map<string, number>();
+    const normalizedMap = new Map<string, number>();
+
+    partsPriceData.forEach(item => {
+      if (item.partName && item.unitPrice > 0) {
+        exactMap.set(item.partName, item.unitPrice);
+        exactMap.set(item.partName.trim(), item.unitPrice);
+        const normalized = normalizeForKpi(item.partName);
+        if (normalized) normalizedMap.set(normalized, item.unitPrice);
+      }
+      if (item.partCode && item.unitPrice > 0) {
+        exactMap.set(item.partCode, item.unitPrice);
+        const normalized = normalizeForKpi(item.partCode);
+        if (normalized) normalizedMap.set(normalized, item.unitPrice);
+      }
+    });
+
+    return { exactMap, normalizedMap };
+  }, [partsPriceData, normalizeForKpi]);
+
+  // 품명으로 단가 조회하는 함수
+  const getUnitPrice = useCallback((productName: string): number => {
+    if (!productName) return 0;
+    // 정확한 매칭
+    let price = priceMap.exactMap.get(productName) || priceMap.exactMap.get(productName.trim()) || 0;
+    // 정규화 매칭
+    if (price === 0) {
+      const normalized = normalizeForKpi(productName);
+      price = priceMap.normalizedMap.get(normalized) || 0;
+    }
+    return price;
+  }, [priceMap, normalizeForKpi]);
+
   const kpiData: ProcessQualityKPI = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) {
       return { totalProduction: 0, totalDefects: 0, averageDefectRate: 0, totalDefectAmount: 0 };
@@ -156,11 +197,17 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
 
     const totalProduction = currentUploadData.reduce((sum, item) => sum + item.productionQty, 0);
     const totalDefects = currentUploadData.reduce((sum, item) => sum + item.defectQty, 0);
-    const totalDefectAmount = currentUploadData.reduce((sum, item) => sum + item.defectAmount, 0);
+
+    // 부품단가 기반 불량금액 계산
+    const totalDefectAmount = currentUploadData.reduce((sum, item) => {
+      const unitPrice = getUnitPrice(item.productName || '');
+      return sum + (item.defectQty * unitPrice);
+    }, 0);
+
     const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
 
     return { totalProduction, totalDefects, averageDefectRate, totalDefectAmount };
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const partTypeData: ProcessQualityByPartType[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -170,14 +217,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.partType].totalProduction += item.productionQty;
       acc[item.partType].totalDefects += item.defectQty;
-      acc[item.partType].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[item.partType].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByPartType>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     }));
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const customerData: ProcessQualityByCustomer[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -187,14 +236,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.customer].totalProduction += item.productionQty;
       acc[item.customer].totalDefects += item.defectQty;
-      acc[item.customer].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[item.customer].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByCustomer>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const vehicleModelData: ProcessQualityByVehicleModel[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -205,14 +256,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[model].totalProduction += item.productionQty;
       acc[model].totalDefects += item.defectQty;
-      acc[model].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[model].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByVehicleModel>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const productNameData: ProcessQualityByProductName[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -223,14 +276,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[product].totalProduction += item.productionQty;
       acc[product].totalDefects += item.defectQty;
-      acc[product].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[product].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByProductName>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const timeSeriesData: ProcessQualityTimeSeries[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -241,7 +296,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[date].totalProduction += item.productionQty;
       acc[date].totalDefects += item.defectQty;
-      acc[date].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[date].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, any>);
     return Object.values(grouped)
@@ -251,7 +308,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         totalAmount: item.totalAmount
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const chartData = useMemo(() => {
     const mapped = partTypeData.map(item => ({
