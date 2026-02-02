@@ -950,23 +950,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUploadProcessQuality = async (file: File) => {
+  const handleUploadProcessQuality = async (file: File, targetMonth?: string) => {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
-
-      // ⭐ 기존 데이터 모두 삭제 (중복 누적 방지)
-      const { error: deleteDataError } = await supabase.from('process_quality_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteDataError) throw deleteDataError;
-
-      const { error: deleteUploadsError } = await supabase.from('process_quality_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteUploadsError) throw deleteUploadsError;
-
-      const { data: uploadRecord, error: uploadError } = await supabase.from('process_quality_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
-      if (uploadError) throw uploadError;
 
       // Helper function to safely convert to number, defaulting to 0 if NaN
       const safeNumber = (value: any): number => {
@@ -992,10 +982,37 @@ const App: React.FC = () => {
         return undefined;
       };
 
+      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      if (targetMonth) {
+        const monthStart = `${targetMonth}-01`;
+        const monthEnd = `${targetMonth}-31`;
+        const { error: deleteDataError } = await supabase
+          .from('process_quality_data')
+          .delete()
+          .gte('data_date', monthStart)
+          .lte('data_date', monthEnd);
+        if (deleteDataError) throw deleteDataError;
+      }
+
+      const { data: uploadRecord, error: uploadError } = await supabase.from('process_quality_uploads').insert({
+        filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name,
+        record_count: jsonData.length
+      }).select().single();
+      if (uploadError) throw uploadError;
+
       const processedData = jsonData.map((row: any) => {
         const productionQty = safeNumber(findColumnValue(row, '생산수량', '생산량') || 0);
         const defectQty = safeNumber(findColumnValue(row, '불량수량', '불량량') || 0);
         const defectRate = productionQty > 0 ? (defectQty / productionQty) * 100 : 0;
+
+        // 데이터 날짜 결정: 엑셀에서 읽거나, targetMonth 사용
+        let dataDate = findColumnValue(row, '생산일자', '일자', '날짜');
+        if (!dataDate && targetMonth) {
+          dataDate = `${targetMonth}-15`; // 월 중간일로 설정
+        } else if (!dataDate) {
+          dataDate = new Date().toISOString().split('T')[0];
+        }
+
         return {
           upload_id: uploadRecord.id,
           customer: String(findColumnValue(row, '고객사', '거래처') || ''),
@@ -1006,7 +1023,7 @@ const App: React.FC = () => {
           defect_qty: defectQty,
           defect_amount: safeNumber(findColumnValue(row, '불량금액', '금액') || 0),
           defect_rate: defectRate,
-          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+          data_date: dataDate
         };
       });
 
@@ -1014,7 +1031,7 @@ const App: React.FC = () => {
       if (dataError) throw dataError;
 
       await fetchAllData();
-      alert('✅ 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+      alert(`✅ 업로드 완료! ${targetMonth ? `[${targetMonth}] ` : ''}${jsonData.length}개의 데이터가 추가되었습니다.`);
     } catch (e: any) {
       handleError(e, "공정불량 데이터 업로드");
       throw e;
@@ -1386,13 +1403,7 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 기존 데이터 모두 삭제 (중복 누적 방지)
-      const { error: deleteDataError } = await supabase.from('parts_price_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteDataError) throw deleteDataError;
-
-      const { error: deleteUploadsError } = await supabase.from('parts_price_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteUploadsError) throw deleteUploadsError;
-
+      // 업로드 이력 추가 (기존 이력 유지)
       const { data: uploadRecord, error: uploadError } = await supabase.from('parts_price_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
@@ -1418,22 +1429,47 @@ const App: React.FC = () => {
         return undefined;
       };
 
-      const processedData = jsonData.map((row: any) => {
-        return {
+      // 기존 데이터 조회
+      const { data: existingData } = await supabase.from('parts_price_data').select('id, part_name');
+      const existingMap = new Map((existingData || []).map((item: any) => [item.part_name, item.id]));
+
+      const newRecords: any[] = [];
+      const updateRecords: any[] = [];
+
+      jsonData.forEach((row: any) => {
+        const partName = String(findColumnValue(row, '품명', '품목명', '부품명', '제품명', 'Part Name', 'partName') || '');
+        if (!partName) return;
+
+        const record = {
           upload_id: uploadRecord.id,
           part_code: findColumnValue(row, '품번', '부품번호', '자재번호', 'Part Code', 'partCode') || null,
-          part_name: String(findColumnValue(row, '품명', '품목명', '부품명', '제품명', 'Part Name', 'partName') || ''),
+          part_name: partName,
           unit_price: safeNumber(findColumnValue(row, '단가', '단위단가', '부품단가', 'Unit Price', 'unitPrice', '금액') || 0),
           customer: findColumnValue(row, '고객사', '거래처', 'Customer') || null,
           vehicle_model: findColumnValue(row, '품종', '차종', '모델', 'Vehicle Model', 'vehicleModel') || null,
         };
+
+        if (existingMap.has(partName)) {
+          updateRecords.push({ id: existingMap.get(partName), ...record });
+        } else {
+          newRecords.push(record);
+        }
       });
 
-      const { error: dataError } = await supabase.from('parts_price_data').insert(processedData);
-      if (dataError) throw dataError;
+      // 새 레코드 삽입
+      if (newRecords.length > 0) {
+        const { error: insertError } = await supabase.from('parts_price_data').insert(newRecords);
+        if (insertError) throw insertError;
+      }
+
+      // 기존 레코드 업데이트
+      for (const record of updateRecords) {
+        const { error: updateError } = await supabase.from('parts_price_data').update(record).eq('id', record.id);
+        if (updateError) throw updateError;
+      }
 
       await fetchAllData();
-      alert('✅ 부품단가표 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+      alert(`✅ 부품단가표 업로드 완료!\n신규: ${newRecords.length}개, 업데이트: ${updateRecords.length}개`);
     } catch (e: any) {
       handleError(e, "부품단가표 업로드");
       throw e;
