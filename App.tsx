@@ -1437,7 +1437,7 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 업로드 이력 추가 (기존 이력 유지)
+      // 업로드 이력 추가
       const { data: uploadRecord, error: uploadError } = await supabase.from('parts_price_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
@@ -1463,47 +1463,42 @@ const App: React.FC = () => {
         return undefined;
       };
 
-      // 기존 데이터 조회
-      const { data: existingData } = await supabase.from('parts_price_data').select('id, part_name');
-      const existingMap = new Map((existingData || []).map((item: any) => [item.part_name, item.id]));
+      // 기존 데이터 모두 삭제 (대량 업데이트 대신 삭제 후 재삽입 방식 사용)
+      const { error: deleteError } = await supabase
+        .from('parts_price_data')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (deleteError) throw deleteError;
 
-      const newRecords: any[] = [];
-      const updateRecords: any[] = [];
-
+      // 데이터 파싱
+      const records: any[] = [];
       jsonData.forEach((row: any) => {
         const partName = String(findColumnValue(row, '품명', '품목명', '부품명', '제품명', 'Part Name', 'partName') || '');
         if (!partName) return;
 
-        const record = {
+        records.push({
           upload_id: uploadRecord.id,
           part_code: findColumnValue(row, '품번', '부품번호', '자재번호', 'Part Code', 'partCode') || null,
           part_name: partName,
           unit_price: safeNumber(findColumnValue(row, '단가', '단위단가', '부품단가', 'Unit Price', 'unitPrice', '금액') || 0),
           customer: findColumnValue(row, '고객사', '거래처', 'Customer') || null,
           vehicle_model: findColumnValue(row, '품종', '차종', '모델', 'Vehicle Model', 'vehicleModel') || null,
-        };
-
-        if (existingMap.has(partName)) {
-          updateRecords.push({ id: existingMap.get(partName), ...record });
-        } else {
-          newRecords.push(record);
-        }
+        });
       });
 
-      // 새 레코드 삽입
-      if (newRecords.length > 0) {
-        const { error: insertError } = await supabase.from('parts_price_data').insert(newRecords);
-        if (insertError) throw insertError;
-      }
+      // 배치로 나누어 삽입 (500개씩)
+      const BATCH_SIZE = 500;
+      let insertedCount = 0;
 
-      // 기존 레코드 업데이트
-      for (const record of updateRecords) {
-        const { error: updateError } = await supabase.from('parts_price_data').update(record).eq('id', record.id);
-        if (updateError) throw updateError;
+      for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const batch = records.slice(i, i + BATCH_SIZE);
+        const { error: insertError } = await supabase.from('parts_price_data').insert(batch);
+        if (insertError) throw insertError;
+        insertedCount += batch.length;
       }
 
       await fetchAllData();
-      alert(`✅ 부품단가표 업로드 완료!\n신규: ${newRecords.length}개, 업데이트: ${updateRecords.length}개`);
+      alert(`✅ 부품단가표 업로드 완료! ${insertedCount}개의 데이터가 등록되었습니다.`);
     } catch (e: any) {
       handleError(e, "부품단가표 업로드");
       throw e;
