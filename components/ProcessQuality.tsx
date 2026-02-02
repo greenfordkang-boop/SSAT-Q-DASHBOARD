@@ -25,7 +25,7 @@ import type {
 interface ProcessQualityProps {
   data: ProcessQualityData[];
   uploads: ProcessQualityUpload[];
-  onUpload: (file: File) => Promise<void>;
+  onUpload: (file: File, targetMonth?: string) => Promise<void>;
   defectTypeData: ProcessDefectTypeData[];
   defectTypeUploads: ProcessDefectTypeUpload[];
   onUploadDefectType: (file: File) => Promise<void>;
@@ -79,81 +79,55 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
   const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries' | 'defectType' | 'detail'>('partType');
   const [defectTypeSubTab, setDefectTypeSubTab] = useState<'injection' | 'painting' | 'assembly'>('injection');
 
+  // 월 선택 (업로드 및 필터)
+  const currentDate = new Date();
+  const currentYearMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const [uploadMonth, setUploadMonth] = useState(currentYearMonth);
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+
   const hasData = data && data.length > 0;
 
-  // Filter to show only the latest upload data
+  // 월 목록 생성 (데이터에서 추출)
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    data.forEach(item => {
+      if (item.dataDate) {
+        const month = item.dataDate.substring(0, 7); // YYYY-MM
+        months.add(month);
+      }
+    });
+    return Array.from(months).sort().reverse();
+  }, [data]);
+
+  // Filter data by selected month
   const currentUploadData = useMemo(() => {
-    if (!data || data.length === 0 || !uploads || uploads.length === 0) {
+    if (!data || data.length === 0) {
       return data;
     }
 
-    // Get the most recent upload
-    const sortedUploads = [...uploads].sort((a, b) =>
-      new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-    );
-
-    const latestUploadId = sortedUploads[0]?.id;
-    if (!latestUploadId) {
-      return data;
+    // 월별 필터링
+    if (filterMonth && filterMonth !== 'all') {
+      return data.filter(item => {
+        if (!item.dataDate) return false;
+        return item.dataDate.startsWith(filterMonth);
+      });
     }
 
-    return data.filter(item => item.uploadId === latestUploadId);
-  }, [data, uploads]);
+    return data;
+  }, [data, filterMonth]);
 
   const kpiData: ProcessQualityKPI = useMemo(() => {
-    if (!data || data.length === 0) {
+    if (!currentUploadData || currentUploadData.length === 0) {
       return { totalProduction: 0, totalDefects: 0, averageDefectRate: 0, totalDefectAmount: 0 };
     }
 
-    // Get the two most recent uploads
-    const sortedUploads = [...uploads].sort((a, b) =>
-      new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-    );
-
-    if (sortedUploads.length === 0) {
-      // If no uploads, calculate from all data
-      const totalProduction = data.reduce((sum, item) => sum + item.productionQty, 0);
-      const totalDefects = data.reduce((sum, item) => sum + item.defectQty, 0);
-      const totalDefectAmount = data.reduce((sum, item) => sum + item.defectAmount, 0);
-      const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
-      return { totalProduction, totalDefects, averageDefectRate, totalDefectAmount };
-    }
-
-    // Calculate current (latest upload) KPIs
-    const latestUploadId = sortedUploads[0].id;
-    const currentData = data.filter(item => item.uploadId === latestUploadId);
-
-    const totalProduction = currentData.reduce((sum, item) => sum + item.productionQty, 0);
-    const totalDefects = currentData.reduce((sum, item) => sum + item.defectQty, 0);
-    const totalDefectAmount = currentData.reduce((sum, item) => sum + item.defectAmount, 0);
+    const totalProduction = currentUploadData.reduce((sum, item) => sum + item.productionQty, 0);
+    const totalDefects = currentUploadData.reduce((sum, item) => sum + item.defectQty, 0);
+    const totalDefectAmount = currentUploadData.reduce((sum, item) => sum + item.defectAmount, 0);
     const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
 
-    // Calculate previous upload KPIs if available
-    if (sortedUploads.length > 1) {
-      const previousUploadId = sortedUploads[1].id;
-      const previousData = data.filter(item => item.uploadId === previousUploadId);
-
-      const prevTotalProduction = previousData.reduce((sum, item) => sum + item.productionQty, 0);
-      const prevTotalDefects = previousData.reduce((sum, item) => sum + item.defectQty, 0);
-      const prevTotalDefectAmount = previousData.reduce((sum, item) => sum + item.defectAmount, 0);
-      const prevAverageDefectRate = prevTotalProduction > 0 ? (prevTotalDefects / prevTotalProduction) * 100 : 0;
-
-      return {
-        totalProduction,
-        totalDefects,
-        averageDefectRate,
-        totalDefectAmount,
-        changeFromPrevious: {
-          totalProduction: totalProduction - prevTotalProduction,
-          totalDefects: totalDefects - prevTotalDefects,
-          averageDefectRate: averageDefectRate - prevAverageDefectRate,
-          totalDefectAmount: totalDefectAmount - prevTotalDefectAmount,
-        }
-      };
-    }
-
     return { totalProduction, totalDefects, averageDefectRate, totalDefectAmount };
-  }, [data, uploads]);
+  }, [currentUploadData]);
 
   const partTypeData: ProcessQualityByPartType[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -480,7 +454,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     if (!file) return;
     setUploading(true);
     try {
-      await onUpload(file);
+      await onUpload(file, uploadMonth);
       setFile(null);
       setShowUpload(false);
     } catch (error: any) {
@@ -488,7 +462,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     } finally {
       setUploading(false);
     }
-  }, [file, onUpload]);
+  }, [file, onUpload, uploadMonth]);
 
   // Defect Type Upload Handlers
   const handleDragOverDefectType = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingDefectType(true); }, []);
@@ -724,7 +698,23 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           <h2 className="text-3xl font-bold text-slate-900">공정불량 현황 대시보드</h2>
           <p className="text-slate-600 mt-1">실시간 공정불량 데이터 분석 및 모니터링</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          {/* 월별 조회 필터 */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+            <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm font-semibold text-slate-700 cursor-pointer"
+            >
+              <option value="all">전체 기간</option>
+              {availableMonths.map(month => (
+                <option key={month} value={month}>{month}</option>
+              ))}
+            </select>
+          </div>
           <button onClick={() => setShowPartsPriceUpload(!showPartsPriceUpload)} className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             부품단가표 업로드
@@ -737,7 +727,21 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       </div>
       {showUpload && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">파일 업로드</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-900">공정불량 데이터 업로드</h3>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-slate-700">업로드 월:</label>
+              <input
+                type="month"
+                value={uploadMonth}
+                onChange={(e) => setUploadMonth(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700"
+              />
+            </div>
+          </div>
+          <p className="text-sm text-amber-600 mb-4 bg-amber-50 p-3 rounded-lg">
+            <strong>참고:</strong> 선택한 월({uploadMonth})의 기존 데이터는 삭제되고 새로 업로드됩니다.
+          </p>
           <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className={'border-2 border-dashed rounded-xl p-12 text-center transition-all ' + (isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50')}>
             <div className="flex flex-col items-center gap-4">
               {file ? (
