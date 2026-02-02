@@ -1494,7 +1494,7 @@ const App: React.FC = () => {
 
         // 단가 컬럼 찾기 (다양한 컬럼명 지원)
         const unitPriceValue = findColumnValue(row,
-          '단가', '단위단가', '부품단가', '금액', '가격',
+          '합계단가', '단가', '단위단가', '부품단가', '금액', '가격',
           '공급단가', '공급가', '판매단가', '매입단가', '원가',
           '부품가격', '가격(원)', '단위가격', 'Unit Price', 'unitPrice', 'Price'
         );
@@ -1506,7 +1506,7 @@ const App: React.FC = () => {
 
         records.push({
           upload_id: uploadRecord.id,
-          part_code: findColumnValue(row, '품번', '부품번호', '자재번호', 'Part Code', 'partCode') || null,
+          part_code: findColumnValue(row, '품목코드', '품번', '부품번호', '자재번호', 'Part Code', 'partCode') || null,
           part_name: partName,
           unit_price: safeNumber(unitPriceValue || 0),
           customer: findColumnValue(row, '고객사', '거래처', 'Customer') || null,
