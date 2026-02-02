@@ -668,7 +668,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     if (!name) return '';
     return name
       .toLowerCase()
-      .replace(/[\s_\-\.\/\\]+/g, '') // 공백, 언더스코어, 하이픈 등 제거
+      .replace(/[\s_\-\.\/\\()（）\[\]【】]+/g, '') // 공백, 괄호, 언더스코어 등 제거
       .replace(/[^\w가-힣]/g, ''); // 알파벳, 숫자, 한글만 남김
   }, []);
 
@@ -676,19 +676,24 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
   const priceLookup = useMemo(() => {
     const exactMap = new Map<string, number>(); // 정확한 매칭
     const normalizedMap = new Map<string, number>(); // 정규화된 매칭
+    const partsList: { normalized: string; original: string; price: number }[] = []; // 부분 매칭용
 
     partsPriceData.forEach(item => {
-      if (item.partName) {
+      if (item.partName && item.unitPrice > 0) {
         exactMap.set(item.partName, item.unitPrice);
-        normalizedMap.set(normalizePartName(item.partName), item.unitPrice);
+        const normalized = normalizePartName(item.partName);
+        normalizedMap.set(normalized, item.unitPrice);
+        partsList.push({ normalized, original: item.partName, price: item.unitPrice });
       }
-      if (item.partCode) {
+      if (item.partCode && item.unitPrice > 0) {
         exactMap.set(item.partCode, item.unitPrice);
-        normalizedMap.set(normalizePartName(item.partCode), item.unitPrice);
+        const normalized = normalizePartName(item.partCode);
+        normalizedMap.set(normalized, item.unitPrice);
+        partsList.push({ normalized, original: item.partCode, price: item.unitPrice });
       }
     });
 
-    return { exactMap, normalizedMap };
+    return { exactMap, normalizedMap, partsList };
   }, [partsPriceData, normalizePartName]);
 
   // Calculate defect amount for each product based on unit price
@@ -701,6 +706,18 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       if (unitPrice === 0) {
         const normalizedProductName = normalizePartName(item.productName);
         unitPrice = priceLookup.normalizedMap.get(normalizedProductName) || 0;
+
+        // 3. 정규화된 매칭도 실패 시, 부분 매칭 시도 (포함 관계)
+        if (unitPrice === 0 && normalizedProductName.length >= 3) {
+          for (const part of priceLookup.partsList) {
+            // 제품명이 부품명을 포함하거나, 부품명이 제품명을 포함하는 경우
+            if (normalizedProductName.includes(part.normalized) ||
+                part.normalized.includes(normalizedProductName)) {
+              unitPrice = part.price;
+              break;
+            }
+          }
+        }
       }
 
       const calculatedDefectAmount = item.totalDefects * unitPrice;
