@@ -28,13 +28,13 @@ interface ProcessQualityProps {
   onUpload: (file: File, targetMonth?: string) => Promise<void>;
   defectTypeData: ProcessDefectTypeData[];
   defectTypeUploads: ProcessDefectTypeUpload[];
-  onUploadDefectType: (file: File) => Promise<void>;
+  onUploadDefectType: (file: File, targetMonth?: string) => Promise<void>;
   paintingDefectTypeData: PaintingDefectTypeData[];
   paintingDefectTypeUploads: PaintingDefectTypeUpload[];
-  onUploadPaintingDefectType: (file: File) => Promise<void>;
+  onUploadPaintingDefectType: (file: File, targetMonth?: string) => Promise<void>;
   assemblyDefectTypeData: AssemblyDefectTypeData[];
   assemblyDefectTypeUploads: AssemblyDefectTypeUpload[];
-  onUploadAssemblyDefectType: (file: File) => Promise<void>;
+  onUploadAssemblyDefectType: (file: File, targetMonth?: string) => Promise<void>;
   partsPriceData: PartsPriceData[];
   partsPriceUploads: PartsPriceUpload[];
   onUploadPartsPrice: (file: File) => Promise<void>;
@@ -87,17 +87,50 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
 
   const hasData = data && data.length > 0;
 
-  // 월 목록 생성 (데이터에서 추출)
+  // 날짜 문자열에서 YYYY-MM 추출하는 헬퍼 함수
+  const extractYearMonth = (dateStr: string | null | undefined): string | null => {
+    if (!dateStr) return null;
+    // ISO format: 2026-01-15T00:00:00.000Z or 2026-01-15
+    const match = dateStr.match(/^(\d{4}-\d{2})/);
+    return match ? match[1] : null;
+  };
+
+  // 월 목록 생성 (모든 데이터에서 추출 - 공정불량 + 불량유형)
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
+
+    // 공정불량 데이터에서 월 추출
     data.forEach(item => {
-      if (item.dataDate) {
-        const month = item.dataDate.substring(0, 7); // YYYY-MM
+      const month = extractYearMonth(item.dataDate);
+      if (month) {
         months.add(month);
       }
     });
+
+    // 불량유형 데이터에서 월 추출
+    defectTypeData.forEach(item => {
+      const month = extractYearMonth(item.dataDate);
+      if (month) {
+        months.add(month);
+      }
+    });
+
+    paintingDefectTypeData.forEach(item => {
+      const month = extractYearMonth(item.dataDate);
+      if (month) {
+        months.add(month);
+      }
+    });
+
+    assemblyDefectTypeData.forEach(item => {
+      const month = extractYearMonth(item.dataDate);
+      if (month) {
+        months.add(month);
+      }
+    });
+
     return Array.from(months).sort().reverse();
-  }, [data]);
+  }, [data, defectTypeData, paintingDefectTypeData, assemblyDefectTypeData]);
 
   // Filter data by selected month
   const currentUploadData = useMemo(() => {
@@ -108,8 +141,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     // 월별 필터링
     if (filterMonth && filterMonth !== 'all') {
       return data.filter(item => {
-        if (!item.dataDate) return false;
-        return item.dataDate.startsWith(filterMonth);
+        const month = extractYearMonth(item.dataDate);
+        return month === filterMonth;
       });
     }
 
@@ -244,14 +277,48 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     불량금액: item.totalAmount,
   })), [timeSeriesData]);
 
+  // 불량유형 데이터 월별 필터링
+  const filteredDefectTypeData = useMemo(() => {
+    if (!defectTypeData || defectTypeData.length === 0) return defectTypeData;
+    if (filterMonth && filterMonth !== 'all') {
+      return defectTypeData.filter(item => {
+        const month = extractYearMonth(item.dataDate);
+        return month === filterMonth;
+      });
+    }
+    return defectTypeData;
+  }, [defectTypeData, filterMonth]);
+
+  const filteredPaintingDefectTypeData = useMemo(() => {
+    if (!paintingDefectTypeData || paintingDefectTypeData.length === 0) return paintingDefectTypeData;
+    if (filterMonth && filterMonth !== 'all') {
+      return paintingDefectTypeData.filter(item => {
+        const month = extractYearMonth(item.dataDate);
+        return month === filterMonth;
+      });
+    }
+    return paintingDefectTypeData;
+  }, [paintingDefectTypeData, filterMonth]);
+
+  const filteredAssemblyDefectTypeData = useMemo(() => {
+    if (!assemblyDefectTypeData || assemblyDefectTypeData.length === 0) return assemblyDefectTypeData;
+    if (filterMonth && filterMonth !== 'all') {
+      return assemblyDefectTypeData.filter(item => {
+        const month = extractYearMonth(item.dataDate);
+        return month === filterMonth;
+      });
+    }
+    return assemblyDefectTypeData;
+  }, [assemblyDefectTypeData, filterMonth]);
+
   // Defect Type Analysis
   const defectTypeAnalysis: DefectTypeAnalysis[] = useMemo(() => {
-    if (!defectTypeData || defectTypeData.length === 0) return [];
+    if (!filteredDefectTypeData || filteredDefectTypeData.length === 0) return [];
 
     const totals: Record<string, number> = {};
     let grandTotal = 0;
 
-    defectTypeData.forEach(item => {
+    filteredDefectTypeData.forEach(item => {
       // Only use defectTypesDetail which contains real defect type names from Excel
       if (item.defectTypesDetail) {
         Object.entries(item.defectTypesDetail).forEach(([type, count]) => {
@@ -270,14 +337,14 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         percentage: grandTotal > 0 ? (count / grandTotal) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count);
-  }, [defectTypeData]);
+  }, [filteredDefectTypeData]);
 
   const defectTypeByProcess: DefectTypeByProcess[] = useMemo(() => {
-    if (!defectTypeData || defectTypeData.length === 0) return [];
+    if (!filteredDefectTypeData || filteredDefectTypeData.length === 0) return [];
 
     const grouped: Record<string, Record<string, number>> = {};
 
-    defectTypeData.forEach(item => {
+    filteredDefectTypeData.forEach(item => {
       const process = item.process || '미분류';
       if (!grouped[process]) grouped[process] = {};
 
@@ -305,16 +372,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           .sort((a, b) => b.count - a.count)
       };
     }).sort((a, b) => b.totalDefects - a.totalDefects);
-  }, [defectTypeData]);
+  }, [filteredDefectTypeData]);
 
   // Painting Defect Type Analysis
   const paintingDefectTypeAnalysis: DefectTypeAnalysis[] = useMemo(() => {
-    if (!paintingDefectTypeData || paintingDefectTypeData.length === 0) return [];
+    if (!filteredPaintingDefectTypeData || filteredPaintingDefectTypeData.length === 0) return [];
 
     const totals: Record<string, number> = {};
     let grandTotal = 0;
 
-    paintingDefectTypeData.forEach(item => {
+    filteredPaintingDefectTypeData.forEach(item => {
       if (item.defectTypesDetail) {
         Object.entries(item.defectTypesDetail).forEach(([type, count]) => {
           if (count > 0) {
@@ -332,14 +399,14 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         percentage: grandTotal > 0 ? (count / grandTotal) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count);
-  }, [paintingDefectTypeData]);
+  }, [filteredPaintingDefectTypeData]);
 
   const paintingDefectTypeByProcess: DefectTypeByProcess[] = useMemo(() => {
-    if (!paintingDefectTypeData || paintingDefectTypeData.length === 0) return [];
+    if (!filteredPaintingDefectTypeData || filteredPaintingDefectTypeData.length === 0) return [];
 
     const grouped: Record<string, Record<string, number>> = {};
 
-    paintingDefectTypeData.forEach(item => {
+    filteredPaintingDefectTypeData.forEach(item => {
       const process = item.process || '미분류';
       if (!grouped[process]) grouped[process] = {};
 
@@ -366,16 +433,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           .sort((a, b) => b.count - a.count)
       };
     }).sort((a, b) => b.totalDefects - a.totalDefects);
-  }, [paintingDefectTypeData]);
+  }, [filteredPaintingDefectTypeData]);
 
   // Assembly Defect Type Analysis
   const assemblyDefectTypeAnalysis: DefectTypeAnalysis[] = useMemo(() => {
-    if (!assemblyDefectTypeData || assemblyDefectTypeData.length === 0) return [];
+    if (!filteredAssemblyDefectTypeData || filteredAssemblyDefectTypeData.length === 0) return [];
 
     const totals: Record<string, number> = {};
     let grandTotal = 0;
 
-    assemblyDefectTypeData.forEach(item => {
+    filteredAssemblyDefectTypeData.forEach(item => {
       if (item.defectTypesDetail) {
         Object.entries(item.defectTypesDetail).forEach(([type, count]) => {
           if (count > 0) {
@@ -393,14 +460,14 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         percentage: grandTotal > 0 ? (count / grandTotal) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count);
-  }, [assemblyDefectTypeData]);
+  }, [filteredAssemblyDefectTypeData]);
 
   const assemblyDefectTypeByProcess: DefectTypeByProcess[] = useMemo(() => {
-    if (!assemblyDefectTypeData || assemblyDefectTypeData.length === 0) return [];
+    if (!filteredAssemblyDefectTypeData || filteredAssemblyDefectTypeData.length === 0) return [];
 
     const grouped: Record<string, Record<string, number>> = {};
 
-    assemblyDefectTypeData.forEach(item => {
+    filteredAssemblyDefectTypeData.forEach(item => {
       const process = item.process || '미분류';
       if (!grouped[process]) grouped[process] = {};
 
@@ -427,7 +494,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
           .sort((a, b) => b.count - a.count)
       };
     }).sort((a, b) => b.totalDefects - a.totalDefects);
-  }, [assemblyDefectTypeData]);
+  }, [filteredAssemblyDefectTypeData]);
 
   const formatNumber = (num: number) => new Intl.NumberFormat('ko-KR').format(num);
   const formatCurrency = (num: number) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(num);
@@ -487,7 +554,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     if (!defectTypeFile) return;
     setUploadingDefectType(true);
     try {
-      await onUploadDefectType(defectTypeFile);
+      await onUploadDefectType(defectTypeFile, uploadMonth);
       setDefectTypeFile(null);
       setShowDefectTypeUpload(false);
     } catch (error: any) {
@@ -495,7 +562,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     } finally {
       setUploadingDefectType(false);
     }
-  }, [defectTypeFile, onUploadDefectType]);
+  }, [defectTypeFile, onUploadDefectType, uploadMonth]);
 
   // Painting Defect Type Upload Handlers
   const handleDragOverPaintingDefectType = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingPaintingDefectType(true); }, []);
@@ -520,7 +587,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     if (!paintingDefectTypeFile) return;
     setUploadingPaintingDefectType(true);
     try {
-      await onUploadPaintingDefectType(paintingDefectTypeFile);
+      await onUploadPaintingDefectType(paintingDefectTypeFile, uploadMonth);
       setPaintingDefectTypeFile(null);
       setShowPaintingDefectTypeUpload(false);
     } catch (error: any) {
@@ -528,7 +595,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     } finally {
       setUploadingPaintingDefectType(false);
     }
-  }, [paintingDefectTypeFile, onUploadPaintingDefectType]);
+  }, [paintingDefectTypeFile, onUploadPaintingDefectType, uploadMonth]);
 
   // Assembly Defect Type Upload Handlers
   const handleDragOverAssemblyDefectType = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingAssemblyDefectType(true); }, []);
@@ -553,7 +620,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     if (!assemblyDefectTypeFile) return;
     setUploadingAssemblyDefectType(true);
     try {
-      await onUploadAssemblyDefectType(assemblyDefectTypeFile);
+      await onUploadAssemblyDefectType(assemblyDefectTypeFile, uploadMonth);
       setAssemblyDefectTypeFile(null);
       setShowAssemblyDefectTypeUpload(false);
     } catch (error: any) {
@@ -561,7 +628,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     } finally {
       setUploadingAssemblyDefectType(false);
     }
-  }, [assemblyDefectTypeFile, onUploadAssemblyDefectType]);
+  }, [assemblyDefectTypeFile, onUploadAssemblyDefectType, uploadMonth]);
 
   // Parts Price Upload Handlers
   const handleDragOverPartsPrice = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDraggingPartsPrice(true); }, []);

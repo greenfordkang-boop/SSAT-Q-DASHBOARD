@@ -1038,7 +1038,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUploadProcessDefectType = async (file: File) => {
+  const handleUploadProcessDefectType = async (file: File, targetMonth?: string) => {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
@@ -1056,14 +1056,19 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 기존 데이터 모두 삭제 (중복 누적 방지)
-      const { error: deleteDataError } = await supabase.from('process_defect_type_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteDataError) throw deleteDataError;
+      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      if (targetMonth) {
+        const monthStart = `${targetMonth}-01`;
+        const monthEnd = `${targetMonth}-31`;
+        const { error: deleteDataError } = await supabase
+          .from('process_defect_type_data')
+          .delete()
+          .gte('data_date', monthStart)
+          .lte('data_date', monthEnd);
+        if (deleteDataError) throw deleteDataError;
+      }
 
-      const { error: deleteUploadsError } = await supabase.from('process_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteUploadsError) throw deleteUploadsError;
-
-      const { data: uploadRecord, error: uploadError } = await supabase.from('process_defect_type_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      const { data: uploadRecord, error: uploadError } = await supabase.from('process_defect_type_uploads').insert({ filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
       // Helper function to safely convert to number, defaulting to 0 if NaN
@@ -1142,7 +1147,13 @@ const App: React.FC = () => {
           defect_type_10: defectType10,
           defect_types_detail: defectTypes,
           total_defects: totalDefects,
-          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+          data_date: (() => {
+            let date = findColumnValue(row, '생산일자', '일자', '날짜');
+            if (!date && targetMonth) {
+              return `${targetMonth}-15`;
+            }
+            return date || new Date().toISOString().split('T')[0];
+          })()
         };
       });
 
@@ -1150,14 +1161,14 @@ const App: React.FC = () => {
       if (dataError) throw dataError;
 
       await fetchAllData();
-      alert('✅ 불량유형 데이터 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+      alert(`✅ 불량유형 데이터 업로드 완료! ${targetMonth ? `[${targetMonth}] ` : ''}${jsonData.length}개의 데이터가 추가되었습니다.`);
     } catch (e: any) {
       handleError(e, "공정불량유형 데이터 업로드");
       throw e;
     }
   };
 
-  const handleUploadPaintingDefectType = async (file: File) => {
+  const handleUploadPaintingDefectType = async (file: File, targetMonth?: string) => {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
@@ -1175,14 +1186,19 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 기존 데이터 모두 삭제 (중복 누적 방지)
-      const { error: deleteDataError } = await supabase.from('painting_defect_type_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteDataError) throw deleteDataError;
+      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      if (targetMonth) {
+        const monthStart = `${targetMonth}-01`;
+        const monthEnd = `${targetMonth}-31`;
+        const { error: deleteDataError } = await supabase
+          .from('painting_defect_type_data')
+          .delete()
+          .gte('data_date', monthStart)
+          .lte('data_date', monthEnd);
+        if (deleteDataError) throw deleteDataError;
+      }
 
-      const { error: deleteUploadsError } = await supabase.from('painting_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteUploadsError) throw deleteUploadsError;
-
-      const { data: uploadRecord, error: uploadError } = await supabase.from('painting_defect_type_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      const { data: uploadRecord, error: uploadError } = await supabase.from('painting_defect_type_uploads').insert({ filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
       // Helper function to safely convert to number, defaulting to 0 if NaN
@@ -1261,7 +1277,13 @@ const App: React.FC = () => {
           defect_type_10: defectType10,
           defect_types_detail: defectTypes,
           total_defects: totalDefects,
-          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+          data_date: (() => {
+            let date = findColumnValue(row, '생산일자', '일자', '날짜');
+            if (!date && targetMonth) {
+              return `${targetMonth}-15`;
+            }
+            return date || new Date().toISOString().split('T')[0];
+          })()
         };
       });
 
@@ -1269,14 +1291,14 @@ const App: React.FC = () => {
       if (dataError) throw dataError;
 
       await fetchAllData();
-      alert('✅ 도장 불량유형 데이터 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+      alert(`✅ 도장 불량유형 데이터 업로드 완료! ${targetMonth ? `[${targetMonth}] ` : ''}${jsonData.length}개의 데이터가 추가되었습니다.`);
     } catch (e: any) {
       handleError(e, "도장불량유형 데이터 업로드");
       throw e;
     }
   };
 
-  const handleUploadAssemblyDefectType = async (file: File) => {
+  const handleUploadAssemblyDefectType = async (file: File, targetMonth?: string) => {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
@@ -1294,14 +1316,19 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 기존 데이터 모두 삭제 (중복 누적 방지)
-      const { error: deleteDataError } = await supabase.from('assembly_defect_type_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteDataError) throw deleteDataError;
+      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      if (targetMonth) {
+        const monthStart = `${targetMonth}-01`;
+        const monthEnd = `${targetMonth}-31`;
+        const { error: deleteDataError } = await supabase
+          .from('assembly_defect_type_data')
+          .delete()
+          .gte('data_date', monthStart)
+          .lte('data_date', monthEnd);
+        if (deleteDataError) throw deleteDataError;
+      }
 
-      const { error: deleteUploadsError } = await supabase.from('assembly_defect_type_uploads').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (deleteUploadsError) throw deleteUploadsError;
-
-      const { data: uploadRecord, error: uploadError } = await supabase.from('assembly_defect_type_uploads').insert({ filename: file.name, record_count: jsonData.length }).select().single();
+      const { data: uploadRecord, error: uploadError } = await supabase.from('assembly_defect_type_uploads').insert({ filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name, record_count: jsonData.length }).select().single();
       if (uploadError) throw uploadError;
 
       // Helper function to safely convert to number, defaulting to 0 if NaN
@@ -1380,7 +1407,13 @@ const App: React.FC = () => {
           defect_type_10: defectType10,
           defect_types_detail: defectTypes,
           total_defects: totalDefects,
-          data_date: findColumnValue(row, '생산일자', '일자', '날짜') || new Date().toISOString().split('T')[0]
+          data_date: (() => {
+            let date = findColumnValue(row, '생산일자', '일자', '날짜');
+            if (!date && targetMonth) {
+              return `${targetMonth}-15`;
+            }
+            return date || new Date().toISOString().split('T')[0];
+          })()
         };
       });
 
@@ -1388,7 +1421,7 @@ const App: React.FC = () => {
       if (dataError) throw dataError;
 
       await fetchAllData();
-      alert('✅ 조립 불량유형 데이터 업로드 완료! ' + jsonData.length + '개의 데이터가 추가되었습니다.');
+      alert(`✅ 조립 불량유형 데이터 업로드 완료! ${targetMonth ? `[${targetMonth}] ` : ''}${jsonData.length}개의 데이터가 추가되었습니다.`);
     } catch (e: any) {
       handleError(e, "조립불량유형 데이터 업로드");
       throw e;
