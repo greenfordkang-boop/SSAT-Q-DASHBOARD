@@ -343,3 +343,24 @@ export interface AssemblyDefectTypeData {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Parts Price (부품단가) Interfaces
+export interface PartsPriceUpload {
+  id?: string;
+  filename: string;
+  recordCount: number;
+  uploadDate: string;
+  createdAt?: string;
+}
+
+export interface PartsPriceData {
+  id?: string;
+  uploadId: string;
+  partCode?: string;
+  partName: string;
+  unitPrice: number;
+  customer?: string;
+  vehicleModel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
