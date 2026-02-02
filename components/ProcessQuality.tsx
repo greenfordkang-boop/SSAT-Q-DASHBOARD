@@ -160,8 +160,17 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     const exactMap = new Map<string, number>();
     const normalizedMap = new Map<string, number>();
 
+    console.log('=== 부품단가 디버깅 ===');
+    console.log('partsPriceData 개수:', partsPriceData?.length || 0);
+
+    if (partsPriceData && partsPriceData.length > 0) {
+      console.log('첫번째 부품단가 샘플:', JSON.stringify(partsPriceData[0]));
+    }
+
+    let validCount = 0;
     partsPriceData.forEach(item => {
       if (item.partName && item.unitPrice > 0) {
+        validCount++;
         exactMap.set(item.partName, item.unitPrice);
         exactMap.set(item.partName.trim(), item.unitPrice);
         const normalized = normalizeForKpi(item.partName);
@@ -173,6 +182,10 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         if (normalized) normalizedMap.set(normalized, item.unitPrice);
       }
     });
+
+    console.log('유효한 부품단가(단가>0) 개수:', validCount);
+    console.log('exactMap 크기:', exactMap.size);
+    console.log('normalizedMap 크기:', normalizedMap.size);
 
     return { exactMap, normalizedMap };
   }, [partsPriceData, normalizeForKpi]);
@@ -195,14 +208,29 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       return { totalProduction: 0, totalDefects: 0, averageDefectRate: 0, totalDefectAmount: 0 };
     }
 
+    console.log('=== 불량금액 계산 디버깅 ===');
+    console.log('currentUploadData 개수:', currentUploadData.length);
+
+    if (currentUploadData.length > 0) {
+      console.log('첫번째 공정불량 샘플:', JSON.stringify({
+        productName: currentUploadData[0].productName,
+        defectQty: currentUploadData[0].defectQty
+      }));
+    }
+
     const totalProduction = currentUploadData.reduce((sum, item) => sum + item.productionQty, 0);
     const totalDefects = currentUploadData.reduce((sum, item) => sum + item.defectQty, 0);
 
     // 부품단가 기반 불량금액 계산
+    let matchedCount = 0;
     const totalDefectAmount = currentUploadData.reduce((sum, item) => {
       const unitPrice = getUnitPrice(item.productName || '');
+      if (unitPrice > 0) matchedCount++;
       return sum + (item.defectQty * unitPrice);
     }, 0);
+
+    console.log('품명 매칭 성공:', matchedCount, '/', currentUploadData.length);
+    console.log('총 불량금액:', totalDefectAmount);
 
     const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
 
