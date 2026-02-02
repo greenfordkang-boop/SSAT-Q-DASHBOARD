@@ -951,6 +951,13 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper function to get last day of month (e.g., "2026-02" -> "2026-02-28")
+  const getMonthEndDate = (yearMonth: string): string => {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
+    return `${yearMonth}-${String(lastDay).padStart(2, '0')}`;
+  };
+
   const handleUploadProcessQuality = async (file: File, targetMonth?: string) => {
     try {
       const data = await file.arrayBuffer();
@@ -986,7 +993,7 @@ const App: React.FC = () => {
       // 월이 지정된 경우 해당 월의 데이터만 삭제
       if (targetMonth) {
         const monthStart = `${targetMonth}-01`;
-        const monthEnd = `${targetMonth}-31`;
+        const monthEnd = getMonthEndDate(targetMonth);
         const { error: deleteDataError } = await supabase
           .from('process_quality_data')
           .delete()
@@ -1060,7 +1067,7 @@ const App: React.FC = () => {
       // 월이 지정된 경우 해당 월의 데이터만 삭제
       if (targetMonth) {
         const monthStart = `${targetMonth}-01`;
-        const monthEnd = `${targetMonth}-31`;
+        const monthEnd = getMonthEndDate(targetMonth);
         const { error: deleteDataError } = await supabase
           .from('process_defect_type_data')
           .delete()
@@ -1190,7 +1197,7 @@ const App: React.FC = () => {
       // 월이 지정된 경우 해당 월의 데이터만 삭제
       if (targetMonth) {
         const monthStart = `${targetMonth}-01`;
-        const monthEnd = `${targetMonth}-31`;
+        const monthEnd = getMonthEndDate(targetMonth);
         const { error: deleteDataError } = await supabase
           .from('painting_defect_type_data')
           .delete()
@@ -1320,7 +1327,7 @@ const App: React.FC = () => {
       // 월이 지정된 경우 해당 월의 데이터만 삭제
       if (targetMonth) {
         const monthStart = `${targetMonth}-01`;
-        const monthEnd = `${targetMonth}-31`;
+        const monthEnd = getMonthEndDate(targetMonth);
         const { error: deleteDataError } = await supabase
           .from('assembly_defect_type_data')
           .delete()
