@@ -1479,19 +1479,47 @@ const App: React.FC = () => {
 
       // 데이터 파싱
       const records: any[] = [];
-      jsonData.forEach((row: any) => {
+
+      // 첫 번째 행의 컬럼명 로깅 (디버깅용)
+      if (jsonData.length > 0) {
+        const firstRowKeys = Object.keys(jsonData[0]);
+        console.log('=== 부품단가 Excel 컬럼명 ===');
+        console.log('컬럼 목록:', firstRowKeys);
+        console.log('첫 번째 행 데이터:', jsonData[0]);
+      }
+
+      jsonData.forEach((row: any, index: number) => {
         const partName = String(findColumnValue(row, '품명', '품목명', '부품명', '제품명', 'Part Name', 'partName') || '');
         if (!partName) return;
+
+        // 단가 컬럼 찾기 (다양한 컬럼명 지원)
+        const unitPriceValue = findColumnValue(row,
+          '단가', '단위단가', '부품단가', '금액', '가격',
+          '공급단가', '공급가', '판매단가', '매입단가', '원가',
+          '부품가격', '가격(원)', '단위가격', 'Unit Price', 'unitPrice', 'Price'
+        );
+
+        // 첫 5개 행에 대해 단가 파싱 결과 로깅
+        if (index < 5) {
+          console.log(`[행 ${index + 1}] 품명: ${partName}, 단가 원본값: ${unitPriceValue}, 변환값: ${safeNumber(unitPriceValue || 0)}`);
+        }
 
         records.push({
           upload_id: uploadRecord.id,
           part_code: findColumnValue(row, '품번', '부품번호', '자재번호', 'Part Code', 'partCode') || null,
           part_name: partName,
-          unit_price: safeNumber(findColumnValue(row, '단가', '단위단가', '부품단가', 'Unit Price', 'unitPrice', '금액') || 0),
+          unit_price: safeNumber(unitPriceValue || 0),
           customer: findColumnValue(row, '고객사', '거래처', 'Customer') || null,
           vehicle_model: findColumnValue(row, '품종', '차종', '모델', 'Vehicle Model', 'vehicleModel') || null,
         });
       });
+
+      // 단가가 0인 레코드 수 확인
+      const zeroUnitPriceCount = records.filter(r => r.unit_price === 0).length;
+      console.log(`단가가 0인 레코드: ${zeroUnitPriceCount} / ${records.length}`);
+      if (zeroUnitPriceCount === records.length && records.length > 0) {
+        console.warn('⚠️ 모든 단가가 0입니다. Excel 파일의 단가 컬럼명을 확인하세요.');
+      }
 
       // 배치로 나누어 삽입 (500개씩)
       const BATCH_SIZE = 500;
