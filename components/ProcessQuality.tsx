@@ -668,7 +668,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     if (!name) return '';
     return name
       .toLowerCase()
-      .replace(/[\s_\-\.\/\\()（）\[\]【】]+/g, '') // 공백, 괄호, 언더스코어 등 제거
+      .trim()
+      .replace(/[\s_\-\.\/\\()（）\[\]【】'",;:]+/g, '') // 모든 특수문자 제거
       .replace(/[^\w가-힣]/g, ''); // 알파벳, 숫자, 한글만 남김
   }, []);
 
@@ -678,37 +679,56 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     const normalizedMap = new Map<string, number>(); // 정규화된 매칭
     const partsList: { normalized: string; original: string; price: number }[] = []; // 부분 매칭용
 
+    console.log('[부품단가] 데이터 개수:', partsPriceData.length);
+
     partsPriceData.forEach(item => {
       if (item.partName && item.unitPrice > 0) {
         exactMap.set(item.partName, item.unitPrice);
+        exactMap.set(item.partName.trim(), item.unitPrice);
         const normalized = normalizePartName(item.partName);
-        normalizedMap.set(normalized, item.unitPrice);
-        partsList.push({ normalized, original: item.partName, price: item.unitPrice });
+        if (normalized) {
+          normalizedMap.set(normalized, item.unitPrice);
+          partsList.push({ normalized, original: item.partName, price: item.unitPrice });
+        }
       }
       if (item.partCode && item.unitPrice > 0) {
         exactMap.set(item.partCode, item.unitPrice);
+        exactMap.set(item.partCode.trim(), item.unitPrice);
         const normalized = normalizePartName(item.partCode);
-        normalizedMap.set(normalized, item.unitPrice);
-        partsList.push({ normalized, original: item.partCode, price: item.unitPrice });
+        if (normalized) {
+          normalizedMap.set(normalized, item.unitPrice);
+          partsList.push({ normalized, original: item.partCode, price: item.unitPrice });
+        }
       }
     });
+
+    console.log('[부품단가] 매칭맵 크기:', exactMap.size, '/', normalizedMap.size);
+    if (partsList.length > 0) {
+      console.log('[부품단가] 샘플:', partsList.slice(0, 3).map(p => `${p.original}=${p.price}`));
+    }
 
     return { exactMap, normalizedMap, partsList };
   }, [partsPriceData, normalizePartName]);
 
   // Calculate defect amount for each product based on unit price
   const productDataWithDefectAmount = useMemo(() => {
-    return productNameData.map(item => {
+    let matchedCount = 0;
+    const unmatchedSamples: string[] = [];
+
+    const result = productNameData.map(item => {
       // 1. 정확한 매칭 시도
       let unitPrice = priceLookup.exactMap.get(item.productName) || 0;
+      if (unitPrice === 0 && item.productName) {
+        unitPrice = priceLookup.exactMap.get(item.productName.trim()) || 0;
+      }
 
       // 2. 정확한 매칭 실패 시, 정규화된 매칭 시도
-      if (unitPrice === 0) {
+      if (unitPrice === 0 && item.productName) {
         const normalizedProductName = normalizePartName(item.productName);
         unitPrice = priceLookup.normalizedMap.get(normalizedProductName) || 0;
 
         // 3. 정규화된 매칭도 실패 시, 부분 매칭 시도 (포함 관계)
-        if (unitPrice === 0 && normalizedProductName.length >= 3) {
+        if (unitPrice === 0 && normalizedProductName && normalizedProductName.length >= 3) {
           for (const part of priceLookup.partsList) {
             // 제품명이 부품명을 포함하거나, 부품명이 제품명을 포함하는 경우
             if (normalizedProductName.includes(part.normalized) ||
@@ -718,7 +738,14 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             }
           }
         }
+
+        // 매칭 실패 샘플 수집
+        if (unitPrice === 0 && unmatchedSamples.length < 5) {
+          unmatchedSamples.push(item.productName);
+        }
       }
+
+      if (unitPrice > 0) matchedCount++;
 
       const calculatedDefectAmount = item.totalDefects * unitPrice;
       return {
@@ -727,6 +754,13 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         calculatedDefectAmount,
       };
     });
+
+    console.log('[불량금액] 매칭 결과:', matchedCount, '/', productNameData.length);
+    if (unmatchedSamples.length > 0) {
+      console.log('[불량금액] 매칭실패 샘플:', unmatchedSamples);
+    }
+
+    return result;
   }, [productNameData, priceLookup, normalizePartName]);
 
   if (!hasData) {
