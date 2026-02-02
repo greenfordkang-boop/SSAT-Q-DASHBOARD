@@ -217,14 +217,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.partType].totalProduction += item.productionQty;
       acc[item.partType].totalDefects += item.defectQty;
-      acc[item.partType].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[item.partType].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByPartType>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     }));
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const customerData: ProcessQualityByCustomer[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -234,14 +236,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.customer].totalProduction += item.productionQty;
       acc[item.customer].totalDefects += item.defectQty;
-      acc[item.customer].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[item.customer].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByCustomer>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const vehicleModelData: ProcessQualityByVehicleModel[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -252,14 +256,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[model].totalProduction += item.productionQty;
       acc[model].totalDefects += item.defectQty;
-      acc[model].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[model].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByVehicleModel>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const productNameData: ProcessQualityByProductName[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -270,14 +276,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[product].totalProduction += item.productionQty;
       acc[product].totalDefects += item.defectQty;
-      acc[product].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[product].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, ProcessQualityByProductName>);
     return Object.values(grouped).map(item => ({
       ...item,
       defectRate: item.totalProduction > 0 ? (item.totalDefects / item.totalProduction) * 100 : 0
     })).sort((a, b) => b.defectRate - a.defectRate);
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const timeSeriesData: ProcessQualityTimeSeries[] = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) return [];
@@ -288,7 +296,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[date].totalProduction += item.productionQty;
       acc[date].totalDefects += item.defectQty;
-      acc[date].totalAmount += item.defectAmount;
+      // 부품단가 기반 불량금액 계산
+      const unitPrice = getUnitPrice(item.productName || '');
+      acc[date].totalAmount += item.defectQty * unitPrice;
       return acc;
     }, {} as Record<string, any>);
     return Object.values(grouped)
@@ -298,7 +308,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         totalAmount: item.totalAmount
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [currentUploadData]);
+  }, [currentUploadData, getUnitPrice]);
 
   const chartData = useMemo(() => {
     const mapped = partTypeData.map(item => ({
