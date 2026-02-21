@@ -221,12 +221,15 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     const totalProduction = currentUploadData.reduce((sum, item) => sum + item.productionQty, 0);
     const totalDefects = currentUploadData.reduce((sum, item) => sum + item.defectQty, 0);
 
-    // 부품단가 기반 불량금액 계산
+    // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 defectAmount 폴백)
     let matchedCount = 0;
     const totalDefectAmount = currentUploadData.reduce((sum, item) => {
       const unitPrice = getUnitPrice(item.productName || '');
-      if (unitPrice > 0) matchedCount++;
-      return sum + (item.defectQty * unitPrice);
+      if (unitPrice > 0) {
+        matchedCount++;
+        return sum + (item.defectQty * unitPrice);
+      }
+      return sum + item.defectAmount;
     }, 0);
 
     console.log('품명 매칭 성공:', matchedCount, '/', currentUploadData.length);
@@ -245,9 +248,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.partType].totalProduction += item.productionQty;
       acc[item.partType].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산
+      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
       const unitPrice = getUnitPrice(item.productName || '');
-      acc[item.partType].totalAmount += item.defectQty * unitPrice;
+      acc[item.partType].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByPartType>);
     return Object.values(grouped).map(item => ({
@@ -264,9 +267,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.customer].totalProduction += item.productionQty;
       acc[item.customer].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산
+      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
       const unitPrice = getUnitPrice(item.productName || '');
-      acc[item.customer].totalAmount += item.defectQty * unitPrice;
+      acc[item.customer].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByCustomer>);
     return Object.values(grouped).map(item => ({
@@ -284,9 +287,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[model].totalProduction += item.productionQty;
       acc[model].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산
+      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
       const unitPrice = getUnitPrice(item.productName || '');
-      acc[model].totalAmount += item.defectQty * unitPrice;
+      acc[model].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByVehicleModel>);
     return Object.values(grouped).map(item => ({
@@ -304,9 +307,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[product].totalProduction += item.productionQty;
       acc[product].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산
+      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
       const unitPrice = getUnitPrice(item.productName || '');
-      acc[product].totalAmount += item.defectQty * unitPrice;
+      acc[product].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByProductName>);
     return Object.values(grouped).map(item => ({
@@ -324,9 +327,9 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[date].totalProduction += item.productionQty;
       acc[date].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산
+      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
       const unitPrice = getUnitPrice(item.productName || '');
-      acc[date].totalAmount += item.defectQty * unitPrice;
+      acc[date].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, any>);
     return Object.values(grouped)
@@ -832,7 +835,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
 
       if (unitPrice > 0) matchedCount++;
 
-      const calculatedDefectAmount = item.totalDefects * unitPrice;
+      // 매칭 성공 시 단가 기반 계산, 실패 시 원래 금액(totalAmount) 폴백
+      const calculatedDefectAmount = unitPrice > 0 ? item.totalDefects * unitPrice : item.totalAmount;
       return {
         ...item,
         unitPrice,
