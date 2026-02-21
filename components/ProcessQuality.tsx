@@ -167,6 +167,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       console.log('첫번째 부품단가 샘플:', JSON.stringify(partsPriceData[0]));
     }
 
+    const partsList: { normalized: string; original: string; price: number }[] = [];
+
     let validCount = 0;
     partsPriceData.forEach(item => {
       if (item.partName && item.unitPrice > 0) {
@@ -174,7 +176,10 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         exactMap.set(item.partName, item.unitPrice);
         exactMap.set(item.partName.trim(), item.unitPrice);
         const normalized = normalizeForKpi(item.partName);
-        if (normalized) normalizedMap.set(normalized, item.unitPrice);
+        if (normalized) {
+          normalizedMap.set(normalized, item.unitPrice);
+          partsList.push({ normalized, original: item.partName, price: item.unitPrice });
+        }
       }
       if (item.partCode && item.unitPrice > 0) {
         exactMap.set(item.partCode, item.unitPrice);
@@ -187,18 +192,32 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     console.log('exactMap 크기:', exactMap.size);
     console.log('normalizedMap 크기:', normalizedMap.size);
 
-    return { exactMap, normalizedMap };
+    return { exactMap, normalizedMap, partsList };
   }, [partsPriceData, normalizeForKpi]);
 
   // 품명으로 단가 조회하는 함수
   const getUnitPrice = useCallback((productName: string): number => {
     if (!productName) return 0;
-    // 정확한 매칭
+    // 1. 정확한 매칭
     let price = priceMap.exactMap.get(productName) || priceMap.exactMap.get(productName.trim()) || 0;
-    // 정규화 매칭
+    // 2. 정규화 매칭
     if (price === 0) {
       const normalized = normalizeForKpi(productName);
       price = priceMap.normalizedMap.get(normalized) || 0;
+      // 3. 부분 매칭 (단가표 품명이 제품명에 포함되는 경우)
+      if (price === 0 && normalized && normalized.length >= 5) {
+        let bestMatch: { price: number; length: number } | null = null;
+        for (const part of priceMap.partsList) {
+          // 최소 5글자 이상 & 제품명에 포함되는 경우
+          if (part.normalized.length >= 5 && normalized.includes(part.normalized)) {
+            // 가장 긴 매칭을 선택 (더 정확한 매칭 우선)
+            if (!bestMatch || part.normalized.length > bestMatch.length) {
+              bestMatch = { price: part.price, length: part.normalized.length };
+            }
+          }
+        }
+        if (bestMatch) price = bestMatch.price;
+      }
     }
     return price;
   }, [priceMap, normalizeForKpi]);
