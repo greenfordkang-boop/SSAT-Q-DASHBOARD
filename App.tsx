@@ -31,6 +31,26 @@ import {
 import { checkTableExists } from './lib/dbMigration';
 import * as XLSX from 'xlsx';
 
+// Supabase 기본 1,000건 제한 우회: 전체 데이터 페이지네이션 조회
+async function fetchAllRows(table: string, orderBy: string, ascending = false) {
+  const PAGE_SIZE = 1000;
+  let allData: any[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .order(orderBy, { ascending })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return allData;
+}
+
 const TABS: DashboardTab[] = [
   { id: 'overall', label: '종합현황' },
   { id: 'ncr', label: 'NCR' },
@@ -485,13 +505,11 @@ const App: React.FC = () => {
       }));
       setQuickResponseData(typedQuickResponseData);
 
-      // 6. 공정불량 데이터 가져오기
-      const { data: pqData, error: pqError } = await supabase
-        .from('process_quality_data')
-        .select('*')
-        .order('data_date', { ascending: false });
-
-      if (pqError) {
+      // 6. 공정불량 데이터 가져오기 (전체 조회 - 1000건 제한 해제)
+      let pqData: any[] = [];
+      try {
+        pqData = await fetchAllRows('process_quality_data', 'data_date', false);
+      } catch (pqError: any) {
         console.warn("Process Quality Data Fetch Warning:", pqError.message);
       }
 
@@ -531,13 +549,11 @@ const App: React.FC = () => {
       }));
       setProcessQualityUploads(typedProcessQualityUploads);
 
-      // 8. 공정불량유형 데이터 가져오기
-      const { data: pdtData, error: pdtError } = await supabase
-        .from('process_defect_type_data')
-        .select('*')
-        .order('data_date', { ascending: false });
-
-      if (pdtError) {
+      // 8. 공정불량유형 데이터 가져오기 (전체 조회)
+      let pdtData: any[] = [];
+      try {
+        pdtData = await fetchAllRows('process_defect_type_data', 'data_date', false);
+      } catch (pdtError: any) {
         console.warn("Process Defect Type Data Fetch Warning:", pdtError.message);
       }
 
@@ -586,13 +602,11 @@ const App: React.FC = () => {
       }));
       setProcessDefectTypeUploads(typedProcessDefectTypeUploads);
 
-      // 10. 도장불량유형 데이터 가져오기
-      const { data: paintingData, error: paintingError } = await supabase
-        .from('painting_defect_type_data')
-        .select('*')
-        .order('data_date', { ascending: false });
-
-      if (paintingError) {
+      // 10. 도장불량유형 데이터 가져오기 (전체 조회)
+      let paintingData: any[] = [];
+      try {
+        paintingData = await fetchAllRows('painting_defect_type_data', 'data_date', false);
+      } catch (paintingError: any) {
         console.warn("Painting Defect Type Data Fetch Warning:", paintingError.message);
       }
 
@@ -641,13 +655,11 @@ const App: React.FC = () => {
       }));
       setPaintingDefectTypeUploads(typedPaintingDefectTypeUploads);
 
-      // 12. 조립불량유형 데이터 가져오기
-      const { data: assemblyData, error: assemblyError } = await supabase
-        .from('assembly_defect_type_data')
-        .select('*')
-        .order('data_date', { ascending: false });
-
-      if (assemblyError) {
+      // 12. 조립불량유형 데이터 가져오기 (전체 조회)
+      let assemblyData: any[] = [];
+      try {
+        assemblyData = await fetchAllRows('assembly_defect_type_data', 'data_date', false);
+      } catch (assemblyError: any) {
         console.warn("Assembly Defect Type Data Fetch Warning:", assemblyError.message);
       }
 
@@ -696,14 +708,11 @@ const App: React.FC = () => {
       }));
       setAssemblyDefectTypeUploads(typedAssemblyDefectTypeUploads);
 
-      // 14. 부품단가 데이터 가져오기
-      const { data: priceData, error: priceError } = await supabase
-        .from('parts_price_data')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10000);
-
-      if (priceError) {
+      // 14. 부품단가 데이터 가져오기 (전체 조회 - 1000건 제한 해제)
+      let priceData: any[] = [];
+      try {
+        priceData = await fetchAllRows('parts_price_data', 'created_at', false);
+      } catch (priceError: any) {
         console.warn("Parts Price Data Fetch Warning:", priceError.message);
       }
 
