@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import DefectTypeAnalysisSection from './DefectTypeAnalysisSection';
+import SortableHeader from './SortableHeader';
+import { useTableControls } from '../hooks/useTableControls';
 import type {
   ProcessQualityData,
   ProcessQualityUpload,
@@ -78,6 +80,13 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
   const [uploadingPartsPrice, setUploadingPartsPrice] = useState(false);
   const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries' | 'defectType' | 'detail'>('partType');
   const [defectTypeSubTab, setDefectTypeSubTab] = useState<'injection' | 'painting' | 'assembly'>('injection');
+
+  // 테이블 접기/펼치기 + 정렬
+  const detailTable = useTableControls(true);
+  const customerTable = useTableControls(true);
+  const vehicleTable = useTableControls(true);
+  const productTable = useTableControls(true);
+  const uploadTable = useTableControls(true);
 
   // 월 선택 (업로드 및 필터)
   const currentDate = new Date();
@@ -157,6 +166,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
 
   // 부품단가 룩업 (kpiData 계산 전에 정의)
   const priceMap = useMemo(() => {
+    const codeMap = new Map<string, number>();    // 품번 정확 매칭용
     const exactMap = new Map<string, number>();
     const normalizedMap = new Map<string, number>();
 
@@ -171,6 +181,10 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
 
     let validCount = 0;
     partsPriceData.forEach(item => {
+      if (item.partCode && item.unitPrice > 0) {
+        codeMap.set(item.partCode, item.unitPrice);
+        codeMap.set(item.partCode.trim(), item.unitPrice);
+      }
       if (item.partName && item.unitPrice > 0) {
         validCount++;
         exactMap.set(item.partName, item.unitPrice);
@@ -183,44 +197,78 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       if (item.partCode && item.unitPrice > 0) {
         exactMap.set(item.partCode, item.unitPrice);
-        const normalized = normalizeForKpi(item.partCode);
-        if (normalized) normalizedMap.set(normalized, item.unitPrice);
+        const normalizedCode = normalizeForKpi(item.partCode);
+        if (normalizedCode) {
+          normalizedMap.set(normalizedCode, item.unitPrice);
+          partsList.push({ normalized: normalizedCode, original: item.partCode, price: item.unitPrice });
+        }
       }
     });
 
     console.log('유효한 부품단가(단가>0) 개수:', validCount);
+    console.log('codeMap(품번) 크기:', codeMap.size);
     console.log('exactMap 크기:', exactMap.size);
     console.log('normalizedMap 크기:', normalizedMap.size);
+    console.log('partsList(부분매칭용) 크기:', partsList.length);
 
-    return { exactMap, normalizedMap, partsList };
+    return { codeMap, exactMap, normalizedMap, partsList };
   }, [partsPriceData, normalizeForKpi]);
 
-  // 품명으로 단가 조회하는 함수
-  const getUnitPrice = useCallback((productName: string): number => {
-    if (!productName) return 0;
-    // 1. 정확한 매칭
-    let price = priceMap.exactMap.get(productName) || priceMap.exactMap.get(productName.trim()) || 0;
-    // 2. 정규화 매칭
-    if (price === 0) {
-      const normalized = normalizeForKpi(productName);
-      price = priceMap.normalizedMap.get(normalized) || 0;
-      // 3. 부분 매칭 (단가표 품명이 제품명에 포함되는 경우)
-      if (price === 0 && normalized && normalized.length >= 5) {
-        let bestMatch: { price: number; length: number } | null = null;
-        for (const part of priceMap.partsList) {
-          // 최소 5글자 이상 & 제품명에 포함되는 경우
-          if (part.normalized.length >= 5 && normalized.includes(part.normalized)) {
-            // 가장 긴 매칭을 선택 (더 정확한 매칭 우선)
-            if (!bestMatch || part.normalized.length > bestMatch.length) {
-              bestMatch = { price: part.price, length: part.normalized.length };
-            }
-          }
-        }
-        if (bestMatch) price = bestMatch.price;
+  // 매칭 방식별 카운트 (디버깅용)
+  const matchCountRef = useMemo(() => ({
+    codeExact: 0, nameExact: 0, normalized: 0, partial: 0, unmatched: 0
+  }), []);
+
+  // 품번 우선 → 품명 폴백 단가 조회 함수
+  const getUnitPrice = useCallback((productName: string, partCode?: string, countMatch = false): number => {
+    // 0. 품번 정확 매칭 (최우선)
+    if (partCode) {
+      const codePrice = priceMap.codeMap.get(partCode) || priceMap.codeMap.get(partCode.trim()) || 0;
+      if (codePrice > 0) {
+        if (countMatch) matchCountRef.codeExact++;
+        return codePrice;
       }
     }
-    return price;
-  }, [priceMap, normalizeForKpi]);
+    // 1. 품명 정확한 매칭
+    if (!productName) {
+      if (countMatch) matchCountRef.unmatched++;
+      return 0;
+    }
+    let price = priceMap.exactMap.get(productName) || priceMap.exactMap.get(productName.trim()) || 0;
+    if (price > 0) {
+      if (countMatch) matchCountRef.nameExact++;
+      return price;
+    }
+    // 2. 정규화 매칭
+    const normalized = normalizeForKpi(productName);
+    price = priceMap.normalizedMap.get(normalized) || 0;
+    if (price > 0) {
+      if (countMatch) matchCountRef.normalized++;
+      return price;
+    }
+    // 3. 부분 매칭 (단가표 품명이 제품명에 포함되는 경우, 단방향, 최장매칭)
+    if (normalized && normalized.length >= 5) {
+      let bestMatch: { price: number; length: number } | null = null;
+      for (const part of priceMap.partsList) {
+        // 최소 5글자 이상 & 제품명에 포함되는 경우 (단방향만)
+        if (part.normalized.length >= 5 && normalized.includes(part.normalized)) {
+          // 길이 비율 검증: 매칭된 문자열이 원본의 60% 이상이어야 함
+          const ratio = part.normalized.length / normalized.length;
+          if (ratio < 0.6) continue;
+          // 가장 긴 매칭을 선택 (더 정확한 매칭 우선)
+          if (!bestMatch || part.normalized.length > bestMatch.length) {
+            bestMatch = { price: part.price, length: part.normalized.length };
+          }
+        }
+      }
+      if (bestMatch) {
+        if (countMatch) matchCountRef.partial++;
+        return bestMatch.price;
+      }
+    }
+    if (countMatch) matchCountRef.unmatched++;
+    return 0;
+  }, [priceMap, normalizeForKpi, matchCountRef]);
 
   const kpiData: ProcessQualityKPI = useMemo(() => {
     if (!currentUploadData || currentUploadData.length === 0) {
@@ -240,10 +288,17 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     const totalProduction = currentUploadData.reduce((sum, item) => sum + item.productionQty, 0);
     const totalDefects = currentUploadData.reduce((sum, item) => sum + item.defectQty, 0);
 
-    // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 defectAmount 폴백)
+    // 부품단가 기반 불량금액 계산 (품번 우선 매칭, 실패 시 원래 defectAmount 폴백)
+    // 매칭 카운트 리셋
+    matchCountRef.codeExact = 0;
+    matchCountRef.nameExact = 0;
+    matchCountRef.normalized = 0;
+    matchCountRef.partial = 0;
+    matchCountRef.unmatched = 0;
+
     let matchedCount = 0;
     const totalDefectAmount = currentUploadData.reduce((sum, item) => {
-      const unitPrice = getUnitPrice(item.productName || '');
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode, true);
       if (unitPrice > 0) {
         matchedCount++;
         return sum + (item.defectQty * unitPrice);
@@ -251,7 +306,13 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       return sum + item.defectAmount;
     }, 0);
 
-    console.log('품명 매칭 성공:', matchedCount, '/', currentUploadData.length);
+    console.log('=== 매칭 방식별 카운트 ===');
+    console.log(`품번정확매칭: ${matchCountRef.codeExact}건`);
+    console.log(`품명정확매칭: ${matchCountRef.nameExact}건`);
+    console.log(`정규화매칭: ${matchCountRef.normalized}건`);
+    console.log(`부분매칭: ${matchCountRef.partial}건`);
+    console.log(`미매칭(fallback): ${matchCountRef.unmatched}건`);
+    console.log('매칭 성공 합계:', matchedCount, '/', currentUploadData.length);
     console.log('총 불량금액:', totalDefectAmount);
 
     const averageDefectRate = totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0;
@@ -267,8 +328,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.partType].totalProduction += item.productionQty;
       acc[item.partType].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
-      const unitPrice = getUnitPrice(item.productName || '');
+      // 부품단가 기반 불량금액 계산 (품번 우선, 실패 시 원래 금액 폴백)
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
       acc[item.partType].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByPartType>);
@@ -286,8 +347,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[item.customer].totalProduction += item.productionQty;
       acc[item.customer].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
-      const unitPrice = getUnitPrice(item.productName || '');
+      // 부품단가 기반 불량금액 계산 (품번 우선, 실패 시 원래 금액 폴백)
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
       acc[item.customer].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByCustomer>);
@@ -306,8 +367,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[model].totalProduction += item.productionQty;
       acc[model].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
-      const unitPrice = getUnitPrice(item.productName || '');
+      // 부품단가 기반 불량금액 계산 (품번 우선, 실패 시 원래 금액 폴백)
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
       acc[model].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByVehicleModel>);
@@ -322,12 +383,16 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     const grouped = currentUploadData.reduce((acc, item) => {
       const product = item.productName || '미분류';
       if (!acc[product]) {
-        acc[product] = { productName: product, totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
+        acc[product] = { productName: product, partCode: item.partCode || '', totalProduction: 0, totalDefects: 0, defectRate: 0, totalAmount: 0 };
+      }
+      // 품번이 비어있으면 후속 레코드에서 채움
+      if (!acc[product].partCode && item.partCode) {
+        acc[product].partCode = item.partCode;
       }
       acc[product].totalProduction += item.productionQty;
       acc[product].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
-      const unitPrice = getUnitPrice(item.productName || '');
+      // 부품단가 기반 불량금액 계산 (품번 우선, 실패 시 원래 금액 폴백)
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
       acc[product].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, ProcessQualityByProductName>);
@@ -346,8 +411,8 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       }
       acc[date].totalProduction += item.productionQty;
       acc[date].totalDefects += item.defectQty;
-      // 부품단가 기반 불량금액 계산 (매칭 실패 시 원래 금액 폴백)
-      const unitPrice = getUnitPrice(item.productName || '');
+      // 부품단가 기반 불량금액 계산 (품번 우선, 실패 시 원래 금액 폴백)
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
       acc[date].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
       return acc;
     }, {} as Record<string, any>);
@@ -770,89 +835,19 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     }
   }, [partsPriceFile, onUploadPartsPrice]);
 
-  // 품명 정규화 함수 (대소문자 무시, 특수문자 제거)
-  const normalizePartName = useCallback((name: string): string => {
-    if (!name) return '';
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[\s_\-\.\/\\()（）\[\]【】'",;:]+/g, '') // 모든 특수문자 제거
-      .replace(/[^\w가-힣]/g, ''); // 알파벳, 숫자, 한글만 남김
-  }, []);
-
-  // Create price lookup map for calculating defect amount
-  const priceLookup = useMemo(() => {
-    const exactMap = new Map<string, number>(); // 정확한 매칭
-    const normalizedMap = new Map<string, number>(); // 정규화된 매칭
-    const partsList: { normalized: string; original: string; price: number }[] = []; // 부분 매칭용
-
-    console.log('[부품단가] 데이터 개수:', partsPriceData.length);
-
-    partsPriceData.forEach(item => {
-      if (item.partName && item.unitPrice > 0) {
-        exactMap.set(item.partName, item.unitPrice);
-        exactMap.set(item.partName.trim(), item.unitPrice);
-        const normalized = normalizePartName(item.partName);
-        if (normalized) {
-          normalizedMap.set(normalized, item.unitPrice);
-          partsList.push({ normalized, original: item.partName, price: item.unitPrice });
-        }
-      }
-      if (item.partCode && item.unitPrice > 0) {
-        exactMap.set(item.partCode, item.unitPrice);
-        exactMap.set(item.partCode.trim(), item.unitPrice);
-        const normalized = normalizePartName(item.partCode);
-        if (normalized) {
-          normalizedMap.set(normalized, item.unitPrice);
-          partsList.push({ normalized, original: item.partCode, price: item.unitPrice });
-        }
-      }
-    });
-
-    console.log('[부품단가] 매칭맵 크기:', exactMap.size, '/', normalizedMap.size);
-    if (partsList.length > 0) {
-      console.log('[부품단가] 샘플:', partsList.slice(0, 3).map(p => `${p.original}=${p.price}`));
-    }
-
-    return { exactMap, normalizedMap, partsList };
-  }, [partsPriceData, normalizePartName]);
-
-  // Calculate defect amount for each product based on unit price
+  // Calculate defect amount for each product based on unit price (getUnitPrice 통합 사용)
   const productDataWithDefectAmount = useMemo(() => {
     let matchedCount = 0;
     const unmatchedSamples: string[] = [];
 
     const result = productNameData.map(item => {
-      // 1. 정확한 매칭 시도
-      let unitPrice = priceLookup.exactMap.get(item.productName) || 0;
-      if (unitPrice === 0 && item.productName) {
-        unitPrice = priceLookup.exactMap.get(item.productName.trim()) || 0;
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
+
+      if (unitPrice > 0) {
+        matchedCount++;
+      } else if (unmatchedSamples.length < 5) {
+        unmatchedSamples.push(`${item.productName}${item.partCode ? ` (${item.partCode})` : ''}`);
       }
-
-      // 2. 정확한 매칭 실패 시, 정규화된 매칭 시도
-      if (unitPrice === 0 && item.productName) {
-        const normalizedProductName = normalizePartName(item.productName);
-        unitPrice = priceLookup.normalizedMap.get(normalizedProductName) || 0;
-
-        // 3. 정규화된 매칭도 실패 시, 부분 매칭 시도 (포함 관계)
-        if (unitPrice === 0 && normalizedProductName && normalizedProductName.length >= 3) {
-          for (const part of priceLookup.partsList) {
-            // 제품명이 부품명을 포함하거나, 부품명이 제품명을 포함하는 경우
-            if (normalizedProductName.includes(part.normalized) ||
-                part.normalized.includes(normalizedProductName)) {
-              unitPrice = part.price;
-              break;
-            }
-          }
-        }
-
-        // 매칭 실패 샘플 수집
-        if (unitPrice === 0 && unmatchedSamples.length < 5) {
-          unmatchedSamples.push(item.productName);
-        }
-      }
-
-      if (unitPrice > 0) matchedCount++;
 
       // 매칭 성공 시 단가 기반 계산, 실패 시 원래 금액(totalAmount) 폴백
       const calculatedDefectAmount = unitPrice > 0 ? item.totalDefects * unitPrice : item.totalAmount;
@@ -863,13 +858,13 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
       };
     });
 
-    console.log('[불량금액] 매칭 결과:', matchedCount, '/', productNameData.length);
+    console.log('[상세테이블] 매칭 결과:', matchedCount, '/', productNameData.length);
     if (unmatchedSamples.length > 0) {
-      console.log('[불량금액] 매칭실패 샘플:', unmatchedSamples);
+      console.log('[상세테이블] 매칭실패 샘플:', unmatchedSamples);
     }
 
     return result;
-  }, [productNameData, priceLookup, normalizePartName]);
+  }, [productNameData, getUnitPrice]);
 
   if (!hasData) {
     return (
@@ -1598,7 +1593,12 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
         )}
         {activeTab === 'detail' && (
           <div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">품목별 상세 내역</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-bold text-slate-900">품목별 상세 내역</h3>
+              <button onClick={detailTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+                {detailTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+              </button>
+            </div>
             <p className="text-sm text-slate-600 mb-6">품목별 불량수량과 부품단가 기반 불량금액을 확인합니다.</p>
 
             {partsPriceData.length === 0 && (
@@ -1609,22 +1609,25 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
               </div>
             )}
 
+            {detailTable.expanded && (<>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">품명</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">단가</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액 (수량x단가)</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
+                    <SortableHeader label="품명" sortKey="productName" sortConfig={detailTable.sortConfig} onSort={detailTable.requestSort} className="text-left py-3 px-4 text-sm font-semibold text-slate-700" />
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">품번</th>
+                    <SortableHeader label="생산수량" sortKey="totalProduction" sortConfig={detailTable.sortConfig} onSort={detailTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                    <SortableHeader label="불량수량" sortKey="totalDefects" sortConfig={detailTable.sortConfig} onSort={detailTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                    <SortableHeader label="단가" sortKey="unitPrice" sortConfig={detailTable.sortConfig} onSort={detailTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                    <SortableHeader label="불량금액 (수량x단가)" sortKey="calculatedDefectAmount" sortConfig={detailTable.sortConfig} onSort={detailTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                    <SortableHeader label="불량률" sortKey="defectRate" sortConfig={detailTable.sortConfig} onSort={detailTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
                   </tr>
                 </thead>
                 <tbody>
-                  {productDataWithDefectAmount.filter(p => p.totalDefects > 0).map((product, index) => (
+                  {detailTable.sortData(productDataWithDefectAmount.filter(p => p.totalDefects > 0)).map((product, index) => (
                     <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-3 px-4 text-sm font-medium text-slate-900">{product.productName}</td>
+                      <td className="py-3 px-4 text-sm text-slate-500">{product.partCode || '-'}</td>
                       <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
                       <td className="py-3 px-4 text-sm text-right font-semibold text-orange-600">{formatNumber(product.totalDefects)}</td>
                       <td className="py-3 px-4 text-sm text-right text-slate-700">
@@ -1642,6 +1645,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
                 <tfoot>
                   <tr className="bg-slate-100 font-bold">
                     <td className="py-3 px-4 text-sm text-slate-900">합계</td>
+                    <td className="py-3 px-4 text-sm text-slate-400">-</td>
                     <td className="py-3 px-4 text-sm text-right text-slate-900">{formatNumber(productDataWithDefectAmount.reduce((sum, p) => sum + p.totalProduction, 0))}</td>
                     <td className="py-3 px-4 text-sm text-right text-orange-600">{formatNumber(productDataWithDefectAmount.reduce((sum, p) => sum + p.totalDefects, 0))}</td>
                     <td className="py-3 px-4 text-sm text-right text-slate-400">-</td>
@@ -1658,24 +1662,31 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
                 <p className="text-sm text-emerald-700">총 {partsPriceData.length}개 품목의 단가가 등록되어 있습니다.</p>
               </div>
             )}
+            </>)}
           </div>
         )}
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">고객사별 불량 현황</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900">고객사별 불량 현황</h3>
+          <button onClick={customerTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            {customerTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+          </button>
+        </div>
+        {customerTable.expanded && (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">고객사</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액</th>
+                <SortableHeader label="고객사" sortKey="customer" sortConfig={customerTable.sortConfig} onSort={customerTable.requestSort} className="text-left py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="생산수량" sortKey="totalProduction" sortConfig={customerTable.sortConfig} onSort={customerTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량수량" sortKey="totalDefects" sortConfig={customerTable.sortConfig} onSort={customerTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량률" sortKey="defectRate" sortConfig={customerTable.sortConfig} onSort={customerTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량금액" sortKey="totalAmount" sortConfig={customerTable.sortConfig} onSort={customerTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
               </tr>
             </thead>
             <tbody>
-              {customerData.map((customer, index) => (
+              {customerTable.sortData(customerData).map((customer, index) => (
                 <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm font-medium text-slate-900">{customer.customer}</td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(customer.totalProduction)}</td>
@@ -1689,22 +1700,29 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </tbody>
           </table>
         </div>
+        )}
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">차종별 불량 현황</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900">차종별 불량 현황</h3>
+          <button onClick={vehicleTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            {vehicleTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+          </button>
+        </div>
+        {vehicleTable.expanded && (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">차종</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액</th>
+                <SortableHeader label="차종" sortKey="vehicleModel" sortConfig={vehicleTable.sortConfig} onSort={vehicleTable.requestSort} className="text-left py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="생산수량" sortKey="totalProduction" sortConfig={vehicleTable.sortConfig} onSort={vehicleTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량수량" sortKey="totalDefects" sortConfig={vehicleTable.sortConfig} onSort={vehicleTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량률" sortKey="defectRate" sortConfig={vehicleTable.sortConfig} onSort={vehicleTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량금액" sortKey="totalAmount" sortConfig={vehicleTable.sortConfig} onSort={vehicleTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
               </tr>
             </thead>
             <tbody>
-              {vehicleModelData.map((model, index) => (
+              {vehicleTable.sortData(vehicleModelData).map((model, index) => (
                 <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm font-medium text-slate-900">{model.vehicleModel}</td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(model.totalProduction)}</td>
@@ -1718,26 +1736,35 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </tbody>
           </table>
         </div>
+        )}
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">품명별 불량 현황</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900">품명별 불량 현황</h3>
+          <button onClick={productTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            {productTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+          </button>
+        </div>
         <p className="text-sm text-slate-600 mb-2">불량률 0.1% 이하는 표시하지 않음 {partsPriceData.length > 0 && <span className="text-emerald-600">(부품단가표 적용됨)</span>}</p>
+        {productTable.expanded && (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">품명</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">생산수량</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량수량</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량률</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">불량금액 (원본)</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-emerald-700">불량금액 (산출)</th>
+                <SortableHeader label="품명" sortKey="productName" sortConfig={productTable.sortConfig} onSort={productTable.requestSort} className="text-left py-3 px-4 text-sm font-semibold text-slate-700" />
+                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">품번</th>
+                <SortableHeader label="생산수량" sortKey="totalProduction" sortConfig={productTable.sortConfig} onSort={productTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량수량" sortKey="totalDefects" sortConfig={productTable.sortConfig} onSort={productTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량률" sortKey="defectRate" sortConfig={productTable.sortConfig} onSort={productTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량금액 (원본)" sortKey="totalAmount" sortConfig={productTable.sortConfig} onSort={productTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="불량금액 (산출)" sortKey="calculatedDefectAmount" sortConfig={productTable.sortConfig} onSort={productTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-emerald-700" />
               </tr>
             </thead>
             <tbody>
-              {productDataWithDefectAmount.filter(product => product.defectRate > 0.1).map((product, index) => (
+              {productTable.sortData(productDataWithDefectAmount.filter(product => product.defectRate > 0.1)).map((product, index) => (
                 <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm font-medium text-slate-900">{product.productName}</td>
+                  <td className="py-3 px-4 text-sm text-slate-500">{product.partCode || '-'}</td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
                   <td className="py-3 px-4 text-sm text-right font-semibold text-orange-600">{formatNumber(product.totalDefects)}</td>
                   <td className="py-3 px-4 text-sm text-right">
@@ -1752,20 +1779,27 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </tbody>
           </table>
         </div>
+        )}
       </div>
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">업로드 이력</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900">업로드 이력</h3>
+          <button onClick={uploadTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            {uploadTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+          </button>
+        </div>
+        {uploadTable.expanded && (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">파일명</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">레코드 수</th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">업로드 일시</th>
+                <SortableHeader label="파일명" sortKey="filename" sortConfig={uploadTable.sortConfig} onSort={uploadTable.requestSort} className="text-left py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="레코드 수" sortKey="recordCount" sortConfig={uploadTable.sortConfig} onSort={uploadTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
+                <SortableHeader label="업로드 일시" sortKey="uploadDate" sortConfig={uploadTable.sortConfig} onSort={uploadTable.requestSort} className="text-right py-3 px-4 text-sm font-semibold text-slate-700" />
               </tr>
             </thead>
             <tbody>
-              {uploads.map((upload, index) => (
+              {uploadTable.sortData(uploads).map((upload, index) => (
                 <tr key={upload.id || index} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4 text-sm font-medium text-slate-900">{upload.filename}</td>
                   <td className="py-3 px-4 text-sm text-right text-slate-700">{formatNumber(upload.recordCount)}</td>
@@ -1775,6 +1809,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
 

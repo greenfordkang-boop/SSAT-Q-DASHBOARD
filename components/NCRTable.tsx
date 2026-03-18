@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { NCREntry, NCRStatus, NCRAttachment } from '../types';
+import SortableHeader from './SortableHeader';
+import { useTableControls } from '../hooks/useTableControls';
 
 interface NCRTableProps {
   data: NCREntry[];
@@ -11,8 +13,9 @@ interface NCRTableProps {
 
 const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D }) => {
   const [filter, setFilter] = useState('');
+  const ncrTable = useTableControls(true);
 
-  const filteredData = data.filter(item => 
+  const filteredData = data.filter(item =>
     item.customer.toLowerCase().includes(filter.toLowerCase()) ||
     item.model.toLowerCase().includes(filter.toLowerCase()) ||
     item.defectContent.toLowerCase().includes(filter.toLowerCase())
@@ -48,34 +51,38 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
       <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-        <input 
-          type="text" 
+        <input
+          type="text"
           placeholder="데이터 필터링 검색..."
           className="pl-4 pr-4 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 w-64 outline-none"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+        <button onClick={ncrTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+          {ncrTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+        </button>
       </div>
 
+      {ncrTable.expanded && (
       <div className="flex-1 overflow-auto">
         <table className="w-full text-[11px] text-left border-collapse min-w-[2100px]">
           <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0 z-[60] border-b border-slate-200">
             <tr>
               <th className="px-2 py-3 whitespace-nowrap text-center">NO</th>
-              <th className="px-2 py-3 whitespace-nowrap text-center">발생일자</th>
-              <th className="px-2 py-3 whitespace-nowrap">고객사</th>
-              <th className="px-2 py-3 whitespace-nowrap">모델</th>
+              <SortableHeader label="발생일자" sortKey="month" sortConfig={ncrTable.sortConfig} onSort={ncrTable.requestSort} className="px-2 py-3 whitespace-nowrap text-center" />
+              <SortableHeader label="고객사" sortKey="customer" sortConfig={ncrTable.sortConfig} onSort={ncrTable.requestSort} className="px-2 py-3 whitespace-nowrap" />
+              <SortableHeader label="모델" sortKey="model" sortConfig={ncrTable.sortConfig} onSort={ncrTable.requestSort} className="px-2 py-3 whitespace-nowrap" />
               <th className="px-2 py-3 whitespace-nowrap">품명</th>
               <th className="px-2 py-3 min-w-[200px]">불량 내용</th>
               <th className="px-2 py-3 whitespace-nowrap text-center">대책서 파일</th>
               <th className="px-2 py-3 min-w-[300px]">원인 및 개선대책 (8D 동기화)</th>
               <th className="px-2 py-3 min-w-[150px]">유효성점검</th>
-              <th className="px-2 py-3 whitespace-nowrap text-center">상태</th>
+              <SortableHeader label="상태" sortKey="status" sortConfig={ncrTable.sortConfig} onSort={ncrTable.requestSort} className="px-2 py-3 whitespace-nowrap text-center" />
               <th className="px-2 py-3 whitespace-nowrap text-center sticky right-0 bg-slate-100 border-l border-slate-300 z-[60] shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">관리도구</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredData.map((item, idx) => (
+            {ncrTable.sortData(filteredData).map((item, idx) => (
               <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
                 <td className="px-2 py-3 text-center text-slate-400">{idx + 1}</td>
                 <td className="px-2 py-3 text-center">{item.month}/{item.day}</td>
@@ -134,6 +141,7 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 };

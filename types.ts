@@ -158,6 +158,7 @@ export interface ProcessQualityData {
   customer: string;
   partType: string; // 도장, 레이저, 사출, 인쇄, 조립, 증착
   vehicleModel?: string;
+  partCode?: string;
   productName?: string;
   productionQty: number;
   defectQty: number;
@@ -213,6 +214,7 @@ export interface ProcessQualityByVehicleModel {
 
 export interface ProcessQualityByProductName {
   productName: string;
+  partCode?: string;
   totalProduction: number;
   totalDefects: number;
   defectRate: number;
@@ -220,7 +222,7 @@ export interface ProcessQualityByProductName {
 }
 
 export interface DashboardTab {
-  id: 'overall' | 'ncr' | 'customer' | 'incoming' | 'process' | 'outgoing' | 'quickresponse';
+  id: 'overall' | 'ncr' | 'customer' | 'incoming' | 'process' | 'outgoing' | 'quickresponse' | 'admin';
   label: string;
 }
 

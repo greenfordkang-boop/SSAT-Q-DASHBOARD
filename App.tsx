@@ -12,6 +12,7 @@ import ProcessQuality from './components/ProcessQuality';
 import OutgoingQuality from './components/OutgoingQuality';
 import QuickResponse from './components/QuickResponse';
 import DatabaseSetupScreen from './components/DatabaseSetupScreen';
+import UploaderModal from './components/UploaderModal';
 import {
   supabase,
   saveSupabaseConfig,
@@ -24,10 +25,12 @@ import {
   getAllUsers,
   approveUser,
   rejectUser,
+  getAccessLogs,
   ADMIN_EMAIL,
   SECURITY_CONFIG,
   UserProfile
 } from './lib/supabaseClient';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { checkTableExists } from './lib/dbMigration';
 import * as XLSX from 'xlsx';
 
@@ -78,6 +81,7 @@ const App: React.FC = () => {
 
   // 관리자 패널 상태
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
 
   // 세션 타이머
   const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -101,6 +105,7 @@ const App: React.FC = () => {
   const [partsPriceUploads, setPartsPriceUploads] = useState<PartsPriceUpload[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab['id']>('overall');
+  const [uploaderOpen, setUploaderOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showEightD, setShowEightD] = useState(false);
   const [editingEntry, setEditingEntry] = useState<NCREntry | null>(null);
@@ -273,10 +278,11 @@ const App: React.FC = () => {
     }
   };
 
-  // ==================== 관리자 탭 선택 시 사용자 목록 로드 ====================
+  // ==================== 관리자 탭 선택 시 사용자 목록 + 접근 로그 로드 ====================
   useEffect(() => {
     if (activeTab === 'admin' && isAdmin(currentUser?.email)) {
       getAllUsers().then(setAllUsers);
+      getAccessLogs(90).then(setAccessLogs);
     }
   }, [activeTab, currentUser?.email]);
 
@@ -519,6 +525,7 @@ const App: React.FC = () => {
         customer: p.customer,
         partType: p.part_type,
         vehicleModel: p.vehicle_model,
+        partCode: p.part_code || '',
         productName: p.product_name,
         productionQty: Number(p.production_qty || 0),
         defectQty: Number(p.defect_qty || 0),
@@ -999,16 +1006,29 @@ const App: React.FC = () => {
         return undefined;
       };
 
-      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      // 이전 업로드 데이터 삭제 (upload_id 기반 - 누적 엑셀의 월 범위 불일치 방지)
       if (targetMonth) {
-        const monthStart = `${targetMonth}-01`;
-        const monthEnd = getMonthEndDate(targetMonth);
-        const { error: deleteDataError } = await supabase
-          .from('process_quality_data')
-          .delete()
-          .gte('data_date', monthStart)
-          .lte('data_date', monthEnd);
-        if (deleteDataError) throw deleteDataError;
+        // 1. 해당 월 파일명 패턴의 이전 upload 레코드 조회
+        const { data: oldUploads } = await supabase
+          .from('process_quality_uploads')
+          .select('id')
+          .like('filename', `[${targetMonth}]%`);
+
+        if (oldUploads && oldUploads.length > 0) {
+          const oldUploadIds = oldUploads.map(u => u.id);
+          // 2. 해당 upload_id의 데이터 삭제 (누적 엑셀의 모든 월 데이터 포함)
+          const { error: deleteDataError } = await supabase
+            .from('process_quality_data')
+            .delete()
+            .in('upload_id', oldUploadIds);
+          if (deleteDataError) throw deleteDataError;
+          // 3. 이전 upload 레코드도 삭제
+          const { error: deleteUploadError } = await supabase
+            .from('process_quality_uploads')
+            .delete()
+            .in('id', oldUploadIds);
+          if (deleteUploadError) throw deleteUploadError;
+        }
       }
 
       const { data: uploadRecord, error: uploadError } = await supabase.from('process_quality_uploads').insert({
@@ -1035,6 +1055,7 @@ const App: React.FC = () => {
           customer: String(findColumnValue(row, '고객사', '거래처') || ''),
           part_type: String(findColumnValue(row, '공정', '공정구분', '부품유형') || ''),
           vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
+          part_code: findColumnValue(row, '품번', '부품코드', '부품번호', '자재번호', '관리번호', '제품코드', '자재코드', '품목코드', 'P/N', 'Part No', 'Part No.', 'Part Code', 'PartNo', 'PART NO', 'Item Code', 'Item No') || null,
           product_name: findColumnValue(row, '품목명', '품명', '제품명') || null,
           production_qty: productionQty,
           defect_qty: defectQty,
@@ -1073,16 +1094,17 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      // 이전 업로드 데이터 삭제 (upload_id 기반 - 누적 엑셀의 월 범위 불일치 방지)
       if (targetMonth) {
-        const monthStart = `${targetMonth}-01`;
-        const monthEnd = getMonthEndDate(targetMonth);
-        const { error: deleteDataError } = await supabase
-          .from('process_defect_type_data')
-          .delete()
-          .gte('data_date', monthStart)
-          .lte('data_date', monthEnd);
-        if (deleteDataError) throw deleteDataError;
+        const { data: oldUploads } = await supabase
+          .from('process_defect_type_uploads')
+          .select('id')
+          .like('filename', `[${targetMonth}]%`);
+        if (oldUploads && oldUploads.length > 0) {
+          const oldIds = oldUploads.map(u => u.id);
+          await supabase.from('process_defect_type_data').delete().in('upload_id', oldIds);
+          await supabase.from('process_defect_type_uploads').delete().in('id', oldIds);
+        }
       }
 
       const { data: uploadRecord, error: uploadError } = await supabase.from('process_defect_type_uploads').insert({ filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name, record_count: jsonData.length }).select().single();
@@ -1148,7 +1170,7 @@ const App: React.FC = () => {
         return {
           upload_id: uploadRecord.id,
           customer: findColumnValue(row, '고객사', '거래처', '사원') || null,
-          part_code: findColumnValue(row, '품번', '부품번호', '자재번호') || null,
+          part_code: findColumnValue(row, '품번', '부품코드', '부품번호', '자재번호', '관리번호', '제품코드', '자재코드', '품목코드', 'P/N', 'Part No', 'Part No.', 'Part Code', 'PartNo', 'PART NO', 'Item Code', 'Item No') || null,
           part_name: findColumnValue(row, '품명', '부품명', '제품명') || null,
           process: findColumnValue(row, '공정', '공정명') || null,
           vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
@@ -1203,16 +1225,17 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      // 이전 업로드 데이터 삭제 (upload_id 기반 - 누적 엑셀의 월 범위 불일치 방지)
       if (targetMonth) {
-        const monthStart = `${targetMonth}-01`;
-        const monthEnd = getMonthEndDate(targetMonth);
-        const { error: deleteDataError } = await supabase
-          .from('painting_defect_type_data')
-          .delete()
-          .gte('data_date', monthStart)
-          .lte('data_date', monthEnd);
-        if (deleteDataError) throw deleteDataError;
+        const { data: oldUploads } = await supabase
+          .from('painting_defect_type_uploads')
+          .select('id')
+          .like('filename', `[${targetMonth}]%`);
+        if (oldUploads && oldUploads.length > 0) {
+          const oldIds = oldUploads.map(u => u.id);
+          await supabase.from('painting_defect_type_data').delete().in('upload_id', oldIds);
+          await supabase.from('painting_defect_type_uploads').delete().in('id', oldIds);
+        }
       }
 
       const { data: uploadRecord, error: uploadError } = await supabase.from('painting_defect_type_uploads').insert({ filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name, record_count: jsonData.length }).select().single();
@@ -1278,7 +1301,7 @@ const App: React.FC = () => {
         return {
           upload_id: uploadRecord.id,
           customer: findColumnValue(row, '고객사', '거래처', '사원') || null,
-          part_code: findColumnValue(row, '품번', '부품번호', '자재번호') || null,
+          part_code: findColumnValue(row, '품번', '부품코드', '부품번호', '자재번호', '관리번호', '제품코드', '자재코드', '품목코드', 'P/N', 'Part No', 'Part No.', 'Part Code', 'PartNo', 'PART NO', 'Item Code', 'Item No') || null,
           part_name: findColumnValue(row, '품명', '부품명', '제품명') || null,
           process: findColumnValue(row, '공정', '공정명') || null,
           vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
@@ -1333,16 +1356,17 @@ const App: React.FC = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       if (jsonData.length === 0) throw new Error('엑셀 파일에 데이터가 없습니다.');
 
-      // 월이 지정된 경우 해당 월의 데이터만 삭제
+      // 이전 업로드 데이터 삭제 (upload_id 기반 - 누적 엑셀의 월 범위 불일치 방지)
       if (targetMonth) {
-        const monthStart = `${targetMonth}-01`;
-        const monthEnd = getMonthEndDate(targetMonth);
-        const { error: deleteDataError } = await supabase
-          .from('assembly_defect_type_data')
-          .delete()
-          .gte('data_date', monthStart)
-          .lte('data_date', monthEnd);
-        if (deleteDataError) throw deleteDataError;
+        const { data: oldUploads } = await supabase
+          .from('assembly_defect_type_uploads')
+          .select('id')
+          .like('filename', `[${targetMonth}]%`);
+        if (oldUploads && oldUploads.length > 0) {
+          const oldIds = oldUploads.map(u => u.id);
+          await supabase.from('assembly_defect_type_data').delete().in('upload_id', oldIds);
+          await supabase.from('assembly_defect_type_uploads').delete().in('id', oldIds);
+        }
       }
 
       const { data: uploadRecord, error: uploadError } = await supabase.from('assembly_defect_type_uploads').insert({ filename: targetMonth ? `[${targetMonth}] ${file.name}` : file.name, record_count: jsonData.length }).select().single();
@@ -1408,7 +1432,7 @@ const App: React.FC = () => {
         return {
           upload_id: uploadRecord.id,
           customer: findColumnValue(row, '고객사', '거래처', '사원') || null,
-          part_code: findColumnValue(row, '품번', '부품번호', '자재번호') || null,
+          part_code: findColumnValue(row, '품번', '부품코드', '부품번호', '자재번호', '관리번호', '제품코드', '자재코드', '품목코드', 'P/N', 'Part No', 'Part No.', 'Part Code', 'PartNo', 'PART NO', 'Item Code', 'Item No') || null,
           part_name: findColumnValue(row, '품명', '부품명', '제품명') || null,
           process: findColumnValue(row, '공정', '공정명') || null,
           vehicle_model: findColumnValue(row, '품종', '차종', '모델') || null,
@@ -1720,6 +1744,7 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <button onClick={() => setUploaderOpen(true)} className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors" data-uploader-trigger="quality">데이터 업로더</button>
           <span className="text-slate-400 text-sm">{currentUser?.email}</span>
           <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1728,6 +1753,7 @@ const App: React.FC = () => {
           </button>
         </div>
       </nav>
+      <UploaderModal isOpen={uploaderOpen} onClose={() => setUploaderOpen(false)} onDataRefresh={fetchAllData} />
 
       <main className="flex-1 p-6 max-w-[1600px] mx-auto w-full">
         {isLoading ? (
@@ -1751,14 +1777,134 @@ const App: React.FC = () => {
             {activeTab === 'quickresponse' && <QuickResponse data={quickResponseData} onSave={handleSaveQuickResponse} onDelete={handleDeleteQuickResponse} />}
 
             {/* ==================== 관리자 패널 ==================== */}
-            {activeTab === 'admin' && isAdmin(currentUser?.email) && (
+            {activeTab === 'admin' && isAdmin(currentUser?.email) && (() => {
+              // 로그인 로그만 필터
+              const loginLogs = accessLogs.filter(l => l.action === 'login');
+              const today = new Date().toISOString().slice(0, 10);
+              const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+              const todayLogins = loginLogs.filter(l => l.created_at?.slice(0, 10) === today).length;
+              const weekLogins = loginLogs.filter(l => l.created_at?.slice(0, 10) >= sevenDaysAgo).length;
+
+              // 일별 로그인 추이 (최근 30일)
+              const dailyMap: Record<string, number> = {};
+              const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+              for (let d = new Date(thirtyDaysAgo); d <= new Date(); d.setDate(d.getDate() + 1)) {
+                dailyMap[d.toISOString().slice(0, 10)] = 0;
+              }
+              loginLogs.forEach(l => {
+                const day = l.created_at?.slice(0, 10);
+                if (day && day in dailyMap) dailyMap[day]++;
+              });
+              const dailyChartData = Object.entries(dailyMap)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, count]) => ({ date: date.slice(5), count }));
+
+              // 사용자별 로그인 통계
+              const userStatsMap: Record<string, { email: string; count: number; lastLogin: string; userAgent: string }> = {};
+              loginLogs.forEach(l => {
+                const email = l.user_email || 'unknown';
+                if (!userStatsMap[email]) {
+                  userStatsMap[email] = { email, count: 0, lastLogin: l.created_at || '', userAgent: l.user_agent || '' };
+                }
+                userStatsMap[email].count++;
+                if (l.created_at > userStatsMap[email].lastLogin) {
+                  userStatsMap[email].lastLogin = l.created_at;
+                  userStatsMap[email].userAgent = l.user_agent || '';
+                }
+              });
+              const userStats = Object.values(userStatsMap).sort((a, b) => b.count - a.count);
+
+              // 브라우저 추출 헬퍼
+              const parseBrowser = (ua: string) => {
+                if (!ua) return '-';
+                if (ua.includes('Edg/')) return 'Edge';
+                if (ua.includes('Chrome/')) return 'Chrome';
+                if (ua.includes('Safari/') && !ua.includes('Chrome')) return 'Safari';
+                if (ua.includes('Firefox/')) return 'Firefox';
+                return 'Other';
+              };
+
+              return (
               <div className="space-y-6">
+                {/* 요약 카드 */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <p className="text-sm text-slate-500 mb-1">총 사용자</p>
+                    <p className="text-2xl font-black text-slate-800">{allUsers.length}</p>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm">
+                    <p className="text-sm text-emerald-600 mb-1">승인된 사용자</p>
+                    <p className="text-2xl font-black text-emerald-700">{allUsers.filter(u => u.approved).length}</p>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm">
+                    <p className="text-sm text-blue-600 mb-1">오늘 로그인</p>
+                    <p className="text-2xl font-black text-blue-700">{todayLogins}</p>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
+                    <p className="text-sm text-amber-600 mb-1">최근 7일 로그인</p>
+                    <p className="text-2xl font-black text-amber-700">{weekLogins}</p>
+                  </div>
+                </div>
+
+                {/* 일별 로그인 추이 차트 */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h2 className="text-lg font-black text-slate-800 mb-4">일별 로그인 추이 (최근 30일)</h2>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dailyChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} interval={2} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                        <Tooltip
+                          formatter={(value: number) => [`${value}회`, '로그인']}
+                          labelFormatter={(label: string) => `날짜: ${label}`}
+                        />
+                        <Bar dataKey="count" fill="#059669" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* 사용자별 로그인 이력 테이블 */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h2 className="text-lg font-black text-slate-800 mb-4">사용자별 로그인 이력 (최근 90일)</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-3 px-4 text-slate-600 font-bold">이메일</th>
+                          <th className="text-center py-3 px-4 text-slate-600 font-bold">로그인 횟수</th>
+                          <th className="text-center py-3 px-4 text-slate-600 font-bold">마지막 로그인</th>
+                          <th className="text-center py-3 px-4 text-slate-600 font-bold">브라우저</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userStats.map(u => (
+                          <tr key={u.email} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-3 px-4 font-medium text-slate-800">
+                              {u.email}
+                              {u.email === ADMIN_EMAIL && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">관리자</span>}
+                            </td>
+                            <td className="py-3 px-4 text-center font-bold text-emerald-700">{u.count}회</td>
+                            <td className="py-3 px-4 text-center text-slate-600">{u.lastLogin ? new Date(u.lastLogin).toLocaleString('ko-KR') : '-'}</td>
+                            <td className="py-3 px-4 text-center text-slate-500">{parseBrowser(u.userAgent)}</td>
+                          </tr>
+                        ))}
+                        {userStats.length === 0 && (
+                          <tr><td colSpan={4} className="py-6 text-center text-slate-400">로그인 이력이 없습니다.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 사용자 관리 (기존) */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <h2 className="text-xl font-black text-slate-800 mb-6">사용자 관리</h2>
 
                   {/* 승인 대기 중인 사용자 */}
                   <div className="mb-8">
-                    <h3 className="text-lg font-bold text-amber-600 mb-4">⏳ 승인 대기 중</h3>
+                    <h3 className="text-lg font-bold text-amber-600 mb-4">승인 대기 중</h3>
                     <div className="space-y-3">
                       {allUsers.filter(u => !u.approved && u.is_active).length === 0 ? (
                         <p className="text-slate-500 text-sm">승인 대기 중인 사용자가 없습니다.</p>
@@ -1791,7 +1937,7 @@ const App: React.FC = () => {
 
                   {/* 승인된 사용자 */}
                   <div>
-                    <h3 className="text-lg font-bold text-emerald-600 mb-4">✓ 승인된 사용자</h3>
+                    <h3 className="text-lg font-bold text-emerald-600 mb-4">승인된 사용자</h3>
                     <div className="space-y-3">
                       {allUsers.filter(u => u.approved).map(user => (
                         <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
@@ -1818,7 +1964,8 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
       </main>

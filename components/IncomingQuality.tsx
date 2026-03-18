@@ -5,6 +5,8 @@ import {
 } from 'recharts';
 import { SupplierMetric } from '../types';
 import { SUPPLIER_LIST } from '../data/mockData';
+import SortableHeader from './SortableHeader';
+import { useTableControls } from '../hooks/useTableControls';
 
 interface IncomingQualityProps {
   metrics: SupplierMetric[];
@@ -19,6 +21,7 @@ const IncomingQuality: React.FC<IncomingQualityProps> = ({ metrics, onSaveMetric
   const [annualTarget, setAnnualTarget] = useState(7500);
   const [targetYear, setTargetYear] = useState(new Date().getFullYear());
   const [isSaving, setIsSaving] = useState(false);
+  const supplierTable = useTableControls(true);
 
   // 실적 입력을 위한 상태
   const [entryForm, setEntryForm] = useState<SupplierMetric>({
@@ -247,22 +250,28 @@ const IncomingQuality: React.FC<IncomingQualityProps> = ({ metrics, onSaveMetric
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <span className="font-black text-sm text-slate-800 uppercase tracking-tight">협력업체별 품질 지표 ({selectedYear}년 {selectedMonth}월 기준)</span>
-          <span className="text-emerald-500 font-black text-[10px] px-2 py-1 bg-emerald-50 rounded uppercase tracking-widest">Connected</span>
+          <div className="flex items-center gap-3">
+            <span className="text-emerald-500 font-black text-[10px] px-2 py-1 bg-emerald-50 rounded uppercase tracking-widest">Connected</span>
+            <button onClick={supplierTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+              {supplierTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+            </button>
+          </div>
         </div>
+        {supplierTable.expanded && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead className="bg-slate-100 font-black">
               <tr>
-                <th className="px-4 py-3 border-r">업체명</th>
-                <th className="px-4 py-3 border-r text-center">입고수량</th>
+                <SortableHeader label="업체명" sortKey="name" sortConfig={supplierTable.sortConfig} onSort={supplierTable.requestSort} className="px-4 py-3 border-r" />
+                <SortableHeader label="입고수량" sortKey="incoming" sortConfig={supplierTable.sortConfig} onSort={supplierTable.requestSort} className="px-4 py-3 border-r text-center" />
                 <th className="px-4 py-3 border-r text-center">검사수량</th>
-                <th className="px-4 py-3 border-r text-center text-rose-600">불량수</th>
-                <th className="px-4 py-3 border-r text-center bg-slate-200">PPM</th>
+                <SortableHeader label="불량수" sortKey="defect" sortConfig={supplierTable.sortConfig} onSort={supplierTable.requestSort} className="px-4 py-3 border-r text-center text-rose-600" />
+                <SortableHeader label="PPM" sortKey="ppm" sortConfig={supplierTable.sortConfig} onSort={supplierTable.requestSort} className="px-4 py-3 border-r text-center bg-slate-200" />
                 <th className="px-4 py-3 text-center">목표 대비</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {monthlyData.map(item => (
+              {supplierTable.sortData(monthlyData).map(item => (
                 <tr key={item.name} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 border-r font-bold">{item.name}</td>
                   <td className="px-4 py-3 border-r text-center">{item.incoming > 0 ? item.incoming.toLocaleString() : '-'}</td>
@@ -287,6 +296,7 @@ const IncomingQuality: React.FC<IncomingQualityProps> = ({ metrics, onSaveMetric
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* 연간 목표 설정 모달 */}

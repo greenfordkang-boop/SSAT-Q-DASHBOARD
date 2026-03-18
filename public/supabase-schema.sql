@@ -211,6 +211,7 @@ CREATE TABLE IF NOT EXISTS process_quality_data (
   customer TEXT NOT NULL,
   part_type TEXT NOT NULL,
   vehicle_model TEXT,
+  part_code TEXT,
   product_name TEXT,
   production_qty INTEGER NOT NULL DEFAULT 0,
   defect_qty INTEGER NOT NULL DEFAULT 0,
@@ -226,6 +227,7 @@ CREATE INDEX IF NOT EXISTS idx_pq_data_upload ON process_quality_data(upload_id)
 CREATE INDEX IF NOT EXISTS idx_pq_data_customer ON process_quality_data(customer);
 CREATE INDEX IF NOT EXISTS idx_pq_data_part_type ON process_quality_data(part_type);
 CREATE INDEX IF NOT EXISTS idx_pq_data_vehicle_model ON process_quality_data(vehicle_model);
+CREATE INDEX IF NOT EXISTS idx_pq_data_part_code ON process_quality_data(part_code);
 CREATE INDEX IF NOT EXISTS idx_pq_data_product_name ON process_quality_data(product_name);
 CREATE INDEX IF NOT EXISTS idx_pq_data_date ON process_quality_data(data_date DESC);
 

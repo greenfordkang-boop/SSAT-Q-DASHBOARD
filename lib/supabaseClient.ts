@@ -27,17 +27,23 @@ export interface UserProfile {
 // 기본값: 사용자가 제공한 값 적용
 const DEFAULT_URL = 'https://xjjsqyawvojybuyrehrr.supabase.co';
 // 제공된 Publishable API Key 적용
-const DEFAULT_KEY = 'sb_publishable_vvaBbJHvo0pcUwaUiPW0ww_vElHC7GW';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqanNxeWF3dm9qeWJ1eXJlaHJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0NjY5NDcsImV4cCI6MjA4NDA0Mjk0N30.CxeGSbsRN4-IU3Pu9bKC01pRBC6zqKIFPNH3Mm5RY-4';
 
-// 저장소 키 (v5 사용 - 기존 캐시 무효화 및 새 기본값 적용)
-const STORAGE_KEY_URL = 'supabase_url_v5';
-const STORAGE_KEY_KEY = 'supabase_key_v5';
+// 저장소 키 (v6 사용 - anon key 전환, 기존 캐시 무효화)
+const STORAGE_KEY_URL = 'supabase_url_v6';
+const STORAGE_KEY_KEY = 'supabase_key_v6';
 
 export const getSupabase = () => {
   let url = DEFAULT_URL;
   let key = DEFAULT_KEY;
 
   if (typeof window !== 'undefined') {
+    // 이전 버전 캐시 정리 (sb_publishable_ 키 무효화)
+    for (let v = 1; v <= 5; v++) {
+      localStorage.removeItem(`supabase_url_v${v}`);
+      localStorage.removeItem(`supabase_key_v${v}`);
+    }
+
     const storedUrl = localStorage.getItem(STORAGE_KEY_URL);
     const storedKey = localStorage.getItem(STORAGE_KEY_KEY);
 
@@ -45,22 +51,29 @@ export const getSupabase = () => {
     if (storedUrl && storedUrl.trim().startsWith('http')) {
       url = storedUrl.trim();
     }
-    if (storedKey && storedKey.trim().length > 0) {
+    // sb_publishable_ 키는 REST API 비호환 - 무시
+    if (storedKey && storedKey.trim().length > 0 && !storedKey.startsWith('sb_')) {
       key = storedKey.trim();
     }
   }
+
+  console.log('[Supabase] URL:', url);
+  console.log('[Supabase] Key type:', key.startsWith('eyJ') ? 'anon (JWT)' : key.substring(0, 15) + '...');
 
   try {
     return createClient(url, key);
   } catch (error) {
     console.error("Supabase Client Initialization Failed:", error);
-    // 초기화 실패 시 기본값으로 재시도하거나 안전한 상태 유지
     return createClient(DEFAULT_URL, DEFAULT_KEY);
   }
 };
 
 // 기존 코드와의 호환성을 위해 export
 export const supabase = getSupabase();
+
+// 관리자 전용 클라이언트 (RLS 우회 - access_logs 조회용)
+const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqanNxeWF3dm9qeWJ1eXJlaHJyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ2Njk0NywiZXhwIjoyMDg0MDQyOTQ3fQ.QwAVhhd4Jv_hPm3robfQuWzAYBnJR3kpaSZZxoBTVkw';
+const supabaseAdmin = createClient(DEFAULT_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 export const saveSupabaseConfig = (newUrl: string, newKey: string) => {
   const cleanUrl = newUrl.trim();
@@ -300,6 +313,29 @@ export async function approveUser(userId: string): Promise<boolean> {
   } catch (err) {
     console.error('사용자 승인 중 오류:', err);
     return false;
+  }
+}
+
+// 접근 로그 조회 (최근 N일, service_role key로 RLS 우회)
+export async function getAccessLogs(days: number = 90): Promise<any[]> {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const { data, error } = await supabaseAdmin
+      .from('access_logs')
+      .select('*')
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('접근 로그 조회 오류:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error('접근 로그 조회 중 오류:', err);
+    return [];
   }
 }
 

@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { QuickResponseEntry, ResponseStatus } from '../types';
+import SortableHeader from './SortableHeader';
+import { useTableControls } from '../hooks/useTableControls';
 
 interface QuickResponseProps {
   data: QuickResponseEntry[];
@@ -10,6 +12,7 @@ interface QuickResponseProps {
 
 const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete }) => {
   const [showForm, setShowForm] = useState(false);
+  const qrTable = useTableControls(true);
   const [editingEntry, setEditingEntry] = useState<QuickResponseEntry | null>(null);
   const [formData, setFormData] = useState<Partial<QuickResponseEntry>>({
     date: new Date().toISOString().split('T')[0],
@@ -146,16 +149,23 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
 
       {/* 테이블 */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <span className="font-black text-sm text-slate-800">신속대응 추적 테이블</span>
+          <button onClick={qrTable.toggleExpand} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+            {qrTable.expanded ? '접기 \u25B2' : '펼치기 \u25BC'}
+          </button>
+        </div>
+        {qrTable.expanded && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-slate-50 border-b-2 border-slate-200">
               <tr>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">NO</th>
-                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생일</th>
+                <SortableHeader label="발생일" sortKey="date" sortConfig={qrTable.sortConfig} onSort={qrTable.requestSort} className="px-3 py-3 text-center font-black text-slate-700 border-r" />
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">발생<br/>장소</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">호기</th>
-                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">불량수</th>
-                <th className="px-3 py-3 text-center font-black text-slate-700 border-r">차종/<br/>품명</th>
+                <SortableHeader label="불량수" sortKey="defectCount" sortConfig={qrTable.sortConfig} onSort={qrTable.requestSort} className="px-3 py-3 text-center font-black text-slate-700 border-r" />
+                <SortableHeader label="차종/품명" sortKey="model" sortConfig={qrTable.sortConfig} onSort={qrTable.requestSort} className="px-3 py-3 text-center font-black text-slate-700 border-r" />
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">현상/문제점</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">담당자</th>
                 <th className="px-3 py-3 text-center font-black text-slate-700 border-r">불량</th>
@@ -195,7 +205,7 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                   </td>
                 </tr>
               ) : (
-                data.map((entry, index) => (
+                qrTable.sortData(data).map((entry, index) => (
                   <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-3 text-center font-bold text-slate-600 border-r">{index + 1}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r whitespace-nowrap">{entry.date}</td>
@@ -244,6 +254,7 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* 입력 폼 모달 */}
