@@ -4,6 +4,7 @@ import { User } from '@supabase/supabase-js';
 import { NCREntry, DashboardTab, CustomerMetric, SupplierMetric, OutgoingMetric, QuickResponseEntry, ProcessQualityData, ProcessQualityUpload, ProcessDefectTypeData, ProcessDefectTypeUpload, PaintingDefectTypeData, PaintingDefectTypeUpload, AssemblyDefectTypeData, AssemblyDefectTypeUpload, PartsPriceData, PartsPriceUpload } from './types';
 import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
+import NCRTrend from './components/NCRTrend';
 import NCRForm from './components/NCRForm';
 import EightDReportModal from './components/EightDReportModal';
 import NCRDetailView from './components/NCRDetailView';
@@ -1532,13 +1533,14 @@ const App: React.FC = () => {
           <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>
         ) : (
           <div className="space-y-6">
-            {activeTab === 'overall' && <Dashboard ncrData={ncrData} customerMetrics={customerMetrics} supplierMetrics={supplierMetrics} processQualityData={processQualityData} outgoingMetrics={outgoingMetrics} />}
+            {activeTab === 'overall' && <Dashboard ncrData={ncrData} customerMetrics={customerMetrics} supplierMetrics={supplierMetrics} processQualityData={processQualityData} outgoingMetrics={outgoingMetrics} partsPriceData={partsPriceData} />}
             {activeTab === 'ncr' && (
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                   <h2 className="text-lg font-black text-slate-800">부적합(NCR) 내역 관리</h2>
                   <button onClick={() => { setEditingEntry(null); setShowForm(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-black shadow-lg">신규 부적합 등록</button>
                 </div>
+                <NCRTrend data={ncrData} />
                 <NCRTable data={ncrData} onEdit={(e) => { setEditingEntry(e); setShowForm(true); }} onDelete={handleDeleteNCR} onOpen8D={(e) => { setSelectedFor8D(e); setShowEightD(true); }} onViewDetail={(e) => { setSelectedForDetail(e); setShowDetail(true); }} />
               </div>
             )}

@@ -80,6 +80,7 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
   const [uploadingPartsPrice, setUploadingPartsPrice] = useState(false);
   const [activeTab, setActiveTab] = useState<'partType' | 'timeSeries' | 'defectType' | 'detail'>('partType');
   const [defectTypeSubTab, setDefectTypeSubTab] = useState<'injection' | 'painting' | 'assembly'>('injection');
+  const [expandedProcesses, setExpandedProcesses] = useState<Set<string>>(new Set());
 
   // 테이블 접기/펼치기 + 정렬
   const detailTable = useTableControls(true);
@@ -866,6 +867,66 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
     return result;
   }, [productNameData, getUnitPrice]);
 
+  // 공정별 부품 불량 상세 데이터
+  const productsByProcess = useMemo(() => {
+    if (!currentUploadData || currentUploadData.length === 0) return [];
+    const grouped: Record<string, Record<string, { productName: string; partCode: string; totalProduction: number; totalDefects: number; totalAmount: number }>> = {};
+
+    currentUploadData.forEach(item => {
+      const process = item.partType;
+      if (!grouped[process]) grouped[process] = {};
+      const product = item.productName || '미분류';
+      if (!grouped[process][product]) {
+        grouped[process][product] = { productName: product, partCode: item.partCode || '', totalProduction: 0, totalDefects: 0, totalAmount: 0 };
+      }
+      if (!grouped[process][product].partCode && item.partCode) {
+        grouped[process][product].partCode = item.partCode;
+      }
+      grouped[process][product].totalProduction += item.productionQty;
+      grouped[process][product].totalDefects += item.defectQty;
+      const unitPrice = getUnitPrice(item.productName || '', item.partCode);
+      grouped[process][product].totalAmount += unitPrice > 0 ? item.defectQty * unitPrice : item.defectAmount;
+    });
+
+    const ordered = PART_TYPE_ORDER.filter(pt => grouped[pt]);
+    const rest = Object.keys(grouped).filter(pt => !PART_TYPE_ORDER.includes(pt)).sort();
+
+    return [...ordered, ...rest].map(partType => {
+      const products = Object.values(grouped[partType])
+        .map(p => ({ ...p, defectRate: p.totalProduction > 0 ? (p.totalDefects / p.totalProduction) * 100 : 0 }))
+        .filter(p => p.totalDefects > 0)
+        .sort((a, b) => b.totalDefects - a.totalDefects);
+      const totalProduction = Object.values(grouped[partType]).reduce((s, p) => s + p.totalProduction, 0);
+      const totalDefects = Object.values(grouped[partType]).reduce((s, p) => s + p.totalDefects, 0);
+      const totalAmount = Object.values(grouped[partType]).reduce((s, p) => s + p.totalAmount, 0);
+      return {
+        partType,
+        color: PART_TYPE_COLORS[partType] || '#64748b',
+        products,
+        totalProduction,
+        totalDefects,
+        totalAmount,
+        defectRate: totalProduction > 0 ? (totalDefects / totalProduction) * 100 : 0,
+      };
+    });
+  }, [currentUploadData, getUnitPrice]);
+
+  const toggleProcess = useCallback((partType: string) => {
+    setExpandedProcesses(prev => {
+      const next = new Set(prev);
+      if (next.has(partType)) next.delete(partType);
+      else next.add(partType);
+      return next;
+    });
+  }, []);
+
+  const toggleAllProcesses = useCallback(() => {
+    setExpandedProcesses(prev => {
+      if (prev.size === productsByProcess.length) return new Set();
+      return new Set(productsByProcess.map(p => p.partType));
+    });
+  }, [productsByProcess]);
+
   if (!hasData) {
     return (
       <div className="min-h-[600px] flex items-center justify-center">
@@ -1234,6 +1295,85 @@ export default function ProcessQuality({ data, uploads, onUpload, defectTypeData
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* 공정별 부품 불량 상세 */}
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">공정별 부품 불량 상세</h3>
+                  <p className="text-sm text-slate-600">각 공정 내 불량 발생 부품을 확인합니다</p>
+                </div>
+                <button onClick={toggleAllProcesses} className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                  {expandedProcesses.size === productsByProcess.length ? '모두 접기' : '모두 펼치기'}
+                </button>
+              </div>
+              <div className="space-y-3">
+                {productsByProcess.map(proc => (
+                  <div key={proc.partType} className="border border-slate-200 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => toggleProcess(proc.partType)}
+                      className="w-full flex items-center justify-between px-5 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: proc.color }} />
+                        <span className="font-semibold text-slate-900">{proc.partType}</span>
+                        <span className="text-sm text-slate-500">({proc.products.length}개 품목)</span>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <span className="text-slate-600">생산 <span className="font-semibold text-slate-900">{formatNumber(proc.totalProduction)}</span></span>
+                        <span className="text-slate-600">불량 <span className="font-semibold text-orange-600">{formatNumber(proc.totalDefects)}</span></span>
+                        <span className={'font-semibold ' + (proc.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{proc.defectRate.toFixed(2)}%</span>
+                        {proc.totalAmount > 0 && <span className="font-semibold text-red-600">{formatCurrency(proc.totalAmount)}</span>}
+                        <svg className={'w-5 h-5 text-slate-400 transition-transform ' + (expandedProcesses.has(proc.partType) ? 'rotate-180' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    </button>
+                    {expandedProcesses.has(proc.partType) && (
+                      <div className="px-5 pb-4">
+                        <table className="w-full mt-2">
+                          <thead>
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-2 px-3 text-xs font-semibold text-slate-600">품명</th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold text-slate-600">품번</th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-slate-600">생산수량</th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-slate-600">불량수량</th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-slate-600">불량률</th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-slate-600">불량금액</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {proc.products.map((product, idx) => (
+                              <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50">
+                                <td className="py-2 px-3 text-sm text-slate-900">{product.productName}</td>
+                                <td className="py-2 px-3 text-sm text-slate-500">{product.partCode || '-'}</td>
+                                <td className="py-2 px-3 text-sm text-right text-slate-700">{formatNumber(product.totalProduction)}</td>
+                                <td className="py-2 px-3 text-sm text-right font-semibold text-orange-600">{formatNumber(product.totalDefects)}</td>
+                                <td className="py-2 px-3 text-sm text-right">
+                                  <span className={'font-semibold ' + (product.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{product.defectRate.toFixed(2)}%</span>
+                                </td>
+                                <td className="py-2 px-3 text-sm text-right font-semibold text-red-600">
+                                  {product.totalAmount > 0 ? formatCurrency(product.totalAmount) : <span className="text-slate-400">-</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50 font-semibold">
+                              <td className="py-2 px-3 text-sm text-slate-900" colSpan={2}>소계</td>
+                              <td className="py-2 px-3 text-sm text-right text-slate-900">{formatNumber(proc.totalProduction)}</td>
+                              <td className="py-2 px-3 text-sm text-right text-orange-600">{formatNumber(proc.totalDefects)}</td>
+                              <td className="py-2 px-3 text-sm text-right">
+                                <span className={'font-semibold ' + (proc.defectRate > 5 ? 'text-red-600' : 'text-green-600')}>{proc.defectRate.toFixed(2)}%</span>
+                              </td>
+                              <td className="py-2 px-3 text-sm text-right text-red-600">{proc.totalAmount > 0 ? formatCurrency(proc.totalAmount) : '-'}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

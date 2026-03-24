@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { NCREntry, CustomerMetric, SupplierMetric, ProcessQualityData, OutgoingMetric } from '../types';
+import { NCREntry, CustomerMetric, SupplierMetric, ProcessQualityData, OutgoingMetric, PartsPriceData } from '../types';
 
 interface DashboardProps {
   ncrData: NCREntry[];
@@ -8,6 +8,7 @@ interface DashboardProps {
   supplierMetrics: SupplierMetric[];
   processQualityData: ProcessQualityData[];
   outgoingMetrics: OutgoingMetric[];
+  partsPriceData: PartsPriceData[];
 }
 
 // 원형 프로그레스 컴포넌트
@@ -74,7 +75,7 @@ const StatusBadge: React.FC<{ status: 'good' | 'warning' | 'danger' | 'neutral';
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplierMetrics, processQualityData, outgoingMetrics }) => {
+const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplierMetrics, processQualityData, outgoingMetrics, partsPriceData }) => {
   // NCR 통계
   const ncrStats = useMemo(() => {
     const total = ncrData.length;
@@ -114,11 +115,45 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
     return { totalIncoming, totalInspection, totalDefects, avgPpm, avgTarget, achievement };
   }, [supplierMetrics]);
 
-  // 공정품질 통계
+  // 부품단가 룩업맵 (품번 + 품명 매칭)
+  const priceMap = useMemo(() => {
+    const codeMap = new Map<string, number>();
+    const nameMap = new Map<string, number>();
+    if (partsPriceData) {
+      partsPriceData.forEach(item => {
+        if (item.partCode && item.unitPrice > 0) {
+          codeMap.set(item.partCode, item.unitPrice);
+          codeMap.set(item.partCode.trim(), item.unitPrice);
+        }
+        if (item.partName && item.unitPrice > 0) {
+          nameMap.set(item.partName, item.unitPrice);
+          nameMap.set(item.partName.trim(), item.unitPrice);
+        }
+      });
+    }
+    return { codeMap, nameMap };
+  }, [partsPriceData]);
+
+  // 공정품질 통계 (부품단가 기반 불량금액 재계산)
   const processQualityStats = useMemo(() => {
     const totalProduction = processQualityData.reduce((sum, d) => sum + d.productionQty, 0);
     const totalDefects = processQualityData.reduce((sum, d) => sum + d.defectQty, 0);
-    const totalAmount = processQualityData.reduce((sum, d) => sum + d.defectAmount, 0);
+
+    // 불량금액: 부품단가 × 불량수량 (ProcessQuality와 동일 패턴)
+    const totalAmount = processQualityData.reduce((sum, d) => {
+      let unitPrice = 0;
+      if (d.partCode) {
+        unitPrice = priceMap.codeMap.get(d.partCode) || priceMap.codeMap.get(d.partCode.trim()) || 0;
+      }
+      if (unitPrice === 0 && d.productName) {
+        unitPrice = priceMap.nameMap.get(d.productName) || priceMap.nameMap.get(d.productName.trim()) || 0;
+      }
+      if (unitPrice > 0) {
+        return sum + (d.defectQty * unitPrice);
+      }
+      return sum + d.defectAmount; // 매칭 실패 시 원본 폴백
+    }, 0);
+
     const avgDefectRate = totalProduction > 0 ? ((totalDefects / totalProduction) * 100) : 0;
     const yieldRate = totalProduction > 0 ? Math.round((1 - totalDefects / totalProduction) * 100 * 100) / 100 : 100;
 
@@ -129,7 +164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
       avgDefectRate: Number(avgDefectRate.toFixed(2)),
       yieldRate
     };
-  }, [processQualityData]);
+  }, [processQualityData, priceMap]);
 
   // 출하품질 통계 (2026년 기준)
   const outgoingStats = useMemo(() => {
