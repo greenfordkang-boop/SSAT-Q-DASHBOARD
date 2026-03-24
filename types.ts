@@ -1,4 +1,6 @@
 
+export type ResponseStatus = 'G' | 'R' | 'Y' | 'N/A';
+
 export type NCRStatus = 'Open' | 'Closed' | 'Delay';
 
 export interface NCRAttachment {

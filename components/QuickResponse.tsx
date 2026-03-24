@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { QuickResponseEntry, ResponseStatus } from '../types';
 import SortableHeader from './SortableHeader';
 import { useTableControls } from '../hooks/useTableControls';
+import QuickResponseDetailView from './QuickResponseDetailView';
 
 interface QuickResponseProps {
   data: QuickResponseEntry[];
@@ -12,6 +13,7 @@ interface QuickResponseProps {
 
 const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete }) => {
   const [showForm, setShowForm] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<QuickResponseEntry | null>(null);
   const qrTable = useTableControls(true);
   const [editingEntry, setEditingEntry] = useState<QuickResponseEntry | null>(null);
   const [formData, setFormData] = useState<Partial<QuickResponseEntry>>({
@@ -206,13 +208,17 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                 </tr>
               ) : (
                 qrTable.sortData(data).map((entry, index) => (
-                  <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={entry.id}
+                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                    onClick={() => setSelectedEntry(entry)}
+                  >
                     <td className="px-3 py-3 text-center font-bold text-slate-600 border-r">{index + 1}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r whitespace-nowrap">{entry.date}</td>
                     <td className="px-3 py-3 text-center font-bold text-slate-800 border-r">{entry.department}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.machineNo || '-'}</td>
                     <td className="px-3 py-3 text-center text-rose-600 font-bold border-r">{entry.defectCount}</td>
-                    <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.model}</td>
+                    <td className="px-3 py-3 text-center text-slate-700 border-r group-hover:text-blue-600 group-hover:font-bold transition-colors">{entry.model}</td>
                     <td className="px-3 py-3 text-left text-slate-700 border-r max-w-xs truncate">{entry.defectContent || '-'}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.materialManager || '-'}</td>
                     <td className="px-3 py-3 text-center text-slate-700 border-r">{entry.defectType || '-'}</td>
@@ -224,7 +230,7 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
                     <td className="px-3 py-3 text-center bg-rose-50 border-r">{getStatusBadge(entry.status25D)}</td>
                     <td className="px-3 py-3 text-center bg-rose-50 border-r">{getStatusBadge(entry.status30D)}</td>
                     <td className="px-3 py-3 text-left text-slate-700 border-r max-w-xs truncate">{entry.remarks || entry.action || '-'}</td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-center gap-1">
                         <button
                           onClick={() => handleEdit(entry)}
@@ -256,6 +262,19 @@ const QuickResponse: React.FC<QuickResponseProps> = ({ data, onSave, onDelete })
         </div>
         )}
       </div>
+
+      {/* 상세보기 모달 */}
+      {selectedEntry && (
+        <QuickResponseDetailView
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+          onEdit={(entry) => {
+            setSelectedEntry(null);
+            handleEdit(entry);
+          }}
+          onDelete={onDelete}
+        />
+      )}
 
       {/* 입력 폼 모달 */}
       {showForm && (
