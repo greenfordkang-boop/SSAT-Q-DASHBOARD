@@ -9,9 +9,10 @@ interface NCRTableProps {
   onEdit: (entry: NCREntry) => void;
   onDelete: (id: string) => void;
   onOpen8D: (entry: NCREntry) => void;
+  onViewDetail: (entry: NCREntry) => void;
 }
 
-const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D }) => {
+const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D, onViewDetail }) => {
   const [filter, setFilter] = useState('');
   const ncrTable = useTableControls(true);
 
@@ -94,7 +95,7 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
           </thead>
           <tbody className="divide-y divide-slate-100">
             {ncrTable.sortData(filteredData).map((item, idx) => (
-              <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+              <tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => onViewDetail(item)}>
                 <td className="px-2 py-3 text-center text-slate-400">{idx + 1}</td>
                 <td className="px-2 py-3 text-center">{item.month}/{item.day}</td>
                 <td className="px-2 py-3 font-bold text-slate-700">{item.customer}</td>
@@ -107,7 +108,7 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
                        {item.attachments.map((file, fileIdx) => (
                          <button
                            key={fileIdx}
-                           onClick={() => openAttachment(file)}
+                           onClick={(e) => { e.stopPropagation(); openAttachment(file); }}
                            className="px-2 py-0.5 bg-blue-600 text-white rounded text-[9px] font-black hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-1 w-full justify-center"
                            title={file.name}
                          >
@@ -144,9 +145,9 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
                 <td className="px-2 py-3 text-center">{getStatusBadge(item.status)}</td>
                 <td className="px-2 py-3 text-center sticky right-0 bg-white border-l border-slate-200 z-[50] group-hover:bg-slate-50">
                   <div className="flex justify-center items-center gap-2 pointer-events-auto relative z-[70]">
-                    <button onClick={() => onOpen8D(item)} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-black hover:bg-blue-700 transition-all shadow-md active:scale-95">8D Report</button>
-                    <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all">✏️</button>
-                    <button onClick={() => onDelete(item.id)} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all">
+                    <button onClick={(e) => { e.stopPropagation(); onOpen8D(item); }} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-black hover:bg-blue-700 transition-all shadow-md active:scale-95">8D Report</button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all">✏️</button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all">
                        <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>

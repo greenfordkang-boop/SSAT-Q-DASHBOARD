@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import NCRTable from './components/NCRTable';
 import NCRForm from './components/NCRForm';
 import EightDReportModal from './components/EightDReportModal';
+import NCRDetailView from './components/NCRDetailView';
 import CustomerQuality from './components/CustomerQuality';
 import IncomingQuality from './components/IncomingQuality';
 import ProcessQuality from './components/ProcessQuality';
@@ -110,6 +111,8 @@ const App: React.FC = () => {
   const [showEightD, setShowEightD] = useState(false);
   const [editingEntry, setEditingEntry] = useState<NCREntry | null>(null);
   const [selectedFor8D, setSelectedFor8D] = useState<NCREntry | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [selectedForDetail, setSelectedForDetail] = useState<NCREntry | null>(null);
 
   // Config Error State
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -1536,7 +1539,7 @@ const App: React.FC = () => {
                   <h2 className="text-lg font-black text-slate-800">부적합(NCR) 내역 관리</h2>
                   <button onClick={() => { setEditingEntry(null); setShowForm(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-black shadow-lg">신규 부적합 등록</button>
                 </div>
-                <NCRTable data={ncrData} onEdit={(e) => { setEditingEntry(e); setShowForm(true); }} onDelete={handleDeleteNCR} onOpen8D={(e) => { setSelectedFor8D(e); setShowEightD(true); }} />
+                <NCRTable data={ncrData} onEdit={(e) => { setEditingEntry(e); setShowForm(true); }} onDelete={handleDeleteNCR} onOpen8D={(e) => { setSelectedFor8D(e); setShowEightD(true); }} onViewDetail={(e) => { setSelectedForDetail(e); setShowDetail(true); }} />
               </div>
             )}
             {activeTab === 'customer' && <CustomerQuality metrics={customerMetrics} onSaveMetric={handleSaveCustomerMetrics} />}
@@ -1741,6 +1744,15 @@ const App: React.FC = () => {
 
       {showForm && <NCRForm initialData={editingEntry} onSave={handleSaveNCR} onDelete={handleDeleteNCR} onCancel={() => setShowForm(false)} />}
       {showEightD && selectedFor8D && <EightDReportModal entry={selectedFor8D} onSave={handleSave8D} onClose={() => setShowEightD(false)} />}
+      {showDetail && selectedForDetail && (
+        <NCRDetailView
+          entry={selectedForDetail}
+          onClose={() => setShowDetail(false)}
+          onEdit={(e) => { setShowDetail(false); setEditingEntry(e); setShowForm(true); }}
+          onOpen8D={(e) => { setShowDetail(false); setSelectedFor8D(e); setShowEightD(true); }}
+          onDelete={handleDeleteNCR}
+        />
+      )}
     </div>
   );
 };
