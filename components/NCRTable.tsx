@@ -33,8 +33,13 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
     try {
       const blob = b64toBlob(file.data, file.type);
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (err) {
       alert('파일 열기 실패: ' + (err instanceof Error ? err.message : '알 수 없는 오류'));
     }
