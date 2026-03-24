@@ -22,14 +22,14 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
     const styles: Record<string, { bg: string; text: string; border: string; dot: string }> = {
       'G': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
       'R': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' },
-      'Y': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', dot: 'bg-yellow-500' },
-      'N/A': { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200', dot: 'bg-slate-400' },
+      'Y': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' },
+      'N/A': { bg: 'bg-slate-50', text: 'text-slate-400', border: 'border-slate-200', dot: 'bg-slate-300' },
     };
     const s = styles[status] || styles['N/A'];
     const statusLabel: Record<string, string> = { 'G': '완료', 'R': '지연', 'Y': '진행중', 'N/A': '해당없음' };
     return (
       <div className={`${s.bg} ${s.border} border rounded-2xl p-4 flex flex-col items-center gap-2`}>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-tight text-center">{label}</span>
         <div className={`w-10 h-10 ${s.dot} rounded-full flex items-center justify-center`}>
           <span className="text-white text-sm font-black">{status}</span>
         </div>
@@ -43,10 +43,10 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
     const hasR = statuses.includes('R');
     const hasY = statuses.includes('Y');
     const allG = statuses.every(s => s === 'G' || s === 'N/A');
-    if (hasR) return { label: '지연 발생', color: 'text-rose-600', bg: 'bg-rose-100', icon: '!' };
-    if (hasY) return { label: '진행 중', color: 'text-yellow-700', bg: 'bg-yellow-100', icon: '~' };
-    if (allG) return { label: '전체 완료', color: 'text-emerald-700', bg: 'bg-emerald-100', icon: '✓' };
-    return { label: '대기', color: 'text-slate-600', bg: 'bg-slate-100', icon: '-' };
+    if (hasR) return { label: '지연 발생', color: 'text-rose-600', bg: 'bg-rose-100' };
+    if (hasY) return { label: '진행 중', color: 'text-amber-700', bg: 'bg-amber-100' };
+    if (allG) return { label: '전체 완료', color: 'text-emerald-700', bg: 'bg-emerald-100' };
+    return { label: '대기', color: 'text-slate-600', bg: 'bg-slate-100' };
   };
 
   const completionRate = () => {
@@ -76,6 +76,17 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
     }
   };
 
+  // 데이터가 있는 추가 필드만 수집
+  const extraFields: { label: string; value: string }[] = [];
+  if (entry.defectType) extraFields.push({ label: '불량유형', value: entry.defectType });
+  if (entry.process) extraFields.push({ label: '공정', value: entry.process });
+  if (entry.coating) extraFields.push({ label: '도장', value: entry.coating });
+  if (entry.area) extraFields.push({ label: '면적', value: entry.area });
+  if (entry.materialCode) extraFields.push({ label: '재질코드', value: entry.materialCode });
+  if (entry.shielding) extraFields.push({ label: '차폐', value: entry.shielding });
+  if (entry.meetingAttendance) extraFields.push({ label: '회의참석', value: entry.meetingAttendance });
+  if (entry.customerMM) extraFields.push({ label: '고객 MM', value: entry.customerMM });
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
       <div
@@ -85,7 +96,7 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
         {/* 헤더 */}
         <div className="p-5 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="w-1.5 h-8 bg-orange-500 rounded-full shrink-0"></div>
+            <div className="w-1.5 h-8 bg-blue-600 rounded-full shrink-0"></div>
             <div className="min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="text-lg font-black text-slate-800 truncate">{entry.model || '미지정'}</h2>
@@ -113,86 +124,53 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
 
         {/* 본문 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* 기본정보 + 불량정보 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* 기본 정보 카드 */}
-            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-              <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-4">기본 정보</h3>
-              <dl className="space-y-3">
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">발생일자</dt>
-                  <dd className="text-sm font-bold text-slate-700">{entry.date}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">발생장소</dt>
-                  <dd className="text-sm font-bold text-slate-700">{entry.department}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">호기번호</dt>
-                  <dd className="text-sm text-slate-700">{entry.machineNo || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">차종/품명</dt>
-                  <dd className="text-sm font-bold text-slate-700">{entry.model || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">불량수</dt>
-                  <dd className="text-sm font-bold text-rose-600">{entry.defectCount}건</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">담당자</dt>
-                  <dd className="text-sm font-bold text-slate-700">{entry.materialManager || '-'}</dd>
-                </div>
-              </dl>
-            </div>
 
-            {/* 불량 상세 정보 카드 */}
-            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-              <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-4">불량 상세</h3>
-              <dl className="space-y-3">
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">불량유형</dt>
-                  <dd className="text-sm text-slate-700">{entry.defectType || '-'}</dd>
+          {/* 기본 정보 */}
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-4">기본 정보</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3">
+              <div className="flex justify-between">
+                <dt className="text-xs text-slate-400 font-bold">발생일자</dt>
+                <dd className="text-sm font-bold text-slate-700">{entry.date}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-xs text-slate-400 font-bold">발생장소</dt>
+                <dd className="text-sm font-bold text-slate-700">{entry.department}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-xs text-slate-400 font-bold">호기번호</dt>
+                <dd className="text-sm text-slate-700">{entry.machineNo || '-'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-xs text-slate-400 font-bold">차종/품명</dt>
+                <dd className="text-sm font-bold text-slate-700">{entry.model || '-'}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-xs text-slate-400 font-bold">불량수</dt>
+                <dd className="text-sm font-bold text-rose-600">{entry.defectCount}건</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-xs text-slate-400 font-bold">담당자</dt>
+                <dd className="text-sm font-bold text-slate-700">{entry.materialManager || '-'}</dd>
+              </div>
+              {extraFields.map((f, i) => (
+                <div key={i} className="flex justify-between">
+                  <dt className="text-xs text-slate-400 font-bold">{f.label}</dt>
+                  <dd className="text-sm text-slate-700">{f.value}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">공정</dt>
-                  <dd className="text-sm text-slate-700">{entry.process || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">도장</dt>
-                  <dd className="text-sm text-slate-700">{entry.coating || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">면적</dt>
-                  <dd className="text-sm text-slate-700">{entry.area || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">재질코드</dt>
-                  <dd className="text-sm text-slate-700">{entry.materialCode || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">차폐</dt>
-                  <dd className="text-sm text-slate-700">{entry.shielding || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">회의참석</dt>
-                  <dd className="text-sm text-slate-700">{entry.meetingAttendance || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-xs text-slate-400 font-bold">고객 MM</dt>
-                  <dd className="text-sm text-slate-700">{entry.customerMM || '-'}</dd>
-                </div>
-              </dl>
+              ))}
             </div>
           </div>
 
           {/* 현상/문제점 */}
-          <div className="bg-amber-50/50 rounded-2xl p-5 border border-amber-100/60">
-            <h3 className="text-xs font-black text-amber-600 uppercase tracking-wider mb-3">현상 / 문제점</h3>
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-              {entry.defectContent || '내용 없음'}
-            </p>
-          </div>
+          {entry.defectContent && (
+            <div className="bg-blue-50/60 rounded-2xl p-5 border border-blue-100/60">
+              <h3 className="text-xs font-black text-blue-600 uppercase tracking-wider mb-3">현상 / 문제점</h3>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                {entry.defectContent}
+              </p>
+            </div>
+          )}
 
           {/* 대응 단계별 상태 */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200">
@@ -201,7 +179,7 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
               {getStatusBadge(entry.status24H as ResponseStatus, '봉쇄조치 (24HR)')}
               {getStatusBadge(entry.status3D as ResponseStatus, '원인분석 (3D)')}
               {getStatusBadge(entry.status14DAY as ResponseStatus, '시정조치 (14D)')}
-              {getStatusBadge(entry.status24D as ResponseStatus, '실수방지/검출/감사 (24D)')}
+              {getStatusBadge(entry.status24D as ResponseStatus, '검출/감사 (24D)')}
               {getStatusBadge(entry.status25D as ResponseStatus, 'PFMEA/교육 (25D)')}
               {getStatusBadge(entry.status30D as ResponseStatus, '습득교훈 (30D)')}
             </div>
@@ -220,7 +198,7 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
                   const colors: Record<string, string> = {
                     'G': 'bg-emerald-500',
                     'R': 'bg-rose-500',
-                    'Y': 'bg-yellow-400',
+                    'Y': 'bg-amber-400',
                     'N/A': 'bg-slate-200',
                   };
                   return (
@@ -238,17 +216,24 @@ const QuickResponseDetailView: React.FC<QuickResponseDetailViewProps> = ({ entry
           {(entry.action || entry.remarks) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {entry.action && (
-                <div className="bg-blue-50/70 rounded-2xl p-5 border border-blue-100/60">
-                  <h3 className="text-xs font-black text-blue-600 uppercase tracking-wider mb-3">조치사항</h3>
+                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3">조치사항</h3>
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{entry.action}</p>
                 </div>
               )}
               {entry.remarks && (
-                <div className="bg-emerald-50/70 rounded-2xl p-5 border border-emerald-100/60">
-                  <h3 className="text-xs font-black text-emerald-600 uppercase tracking-wider mb-3">개선대책 / 비고</h3>
+                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3">개선대책 / 비고</h3>
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{entry.remarks}</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 데이터 없을 때 안내 */}
+          {!entry.defectContent && !entry.action && !entry.remarks && (
+            <div className="bg-slate-50 rounded-2xl p-8 border border-slate-100 text-center">
+              <p className="text-sm text-slate-400">상세 내용이 등록되지 않았습니다. 편집 버튼으로 내용을 추가하세요.</p>
             </div>
           )}
         </div>

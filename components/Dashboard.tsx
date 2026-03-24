@@ -208,12 +208,12 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       {/* 히어로 섹션 - 전체 품질 점수 */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-10 rounded-[2rem] shadow-2xl">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-40"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-zinc-900 p-10 rounded-[2rem] shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/5 via-transparent to-emerald-600/5"></div>
 
         <div className="relative flex flex-col lg:flex-row items-center justify-between gap-8">
           <div className="text-center lg:text-left">
-            <p className="text-emerald-400 font-semibold text-sm tracking-wider uppercase mb-2">2026 Quality Dashboard</p>
+            <p className="text-blue-400 font-semibold text-sm tracking-wider uppercase mb-2">2026 Quality Dashboard</p>
             <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
               품질관리 종합현황
             </h1>
@@ -225,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
 
           <div className="flex flex-col items-center">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-full blur-2xl"></div>
+              <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-2xl"></div>
               <CircularProgress
                 value={overallScore}
                 size={180}
@@ -239,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         </div>
 
         {/* 핵심 KPI 요약 */}
-        <div className="relative grid grid-cols-2 lg:grid-cols-5 gap-4 mt-10 pt-8 border-t border-slate-700/50">
+        <div className="relative grid grid-cols-2 lg:grid-cols-5 gap-4 mt-10 pt-8 border-t border-white/10">
           <div className="text-center">
             <p className="text-3xl lg:text-4xl font-bold text-white">{ncrStats.total}</p>
             <p className="text-slate-400 text-sm mt-1">NCR 총건수</p>
@@ -270,7 +270,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         <div className="group bg-white rounded-3xl p-8 shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center shadow-lg shadow-slate-800/20">
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -311,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
           </div>
           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all duration-1000"
+              className="h-full rounded-full bg-slate-700 transition-all duration-1000"
               style={{width: `${ncrStats.closedRate}%`}}
             ></div>
           </div>
@@ -321,7 +321,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         <div className="group bg-white rounded-3xl p-8 shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -374,7 +374,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         <div className="group bg-white rounded-3xl p-8 shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+              <div className="w-12 h-12 rounded-2xl bg-sky-600 flex items-center justify-center shadow-lg shadow-sky-600/20">
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
@@ -431,7 +431,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         <div className="group lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/20">
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -452,7 +452,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
 
           {processQualityData.length > 0 ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-5">
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center">
                     <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -464,33 +464,33 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
                 <p className="text-3xl font-bold text-slate-900">{processQualityStats.totalProduction.toLocaleString()}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-5">
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-200 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-red-600 text-sm font-medium">불량수량</p>
+                  <p className="text-rose-600 text-sm font-medium">불량수량</p>
                 </div>
-                <p className="text-3xl font-bold text-red-600">{processQualityStats.totalDefects.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-rose-600">{processQualityStats.totalDefects.toLocaleString()}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-5">
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="text-amber-600 text-sm font-medium">불량금액</p>
+                  <p className="text-slate-600 text-sm font-medium">불량금액</p>
                 </div>
-                <p className="text-3xl font-bold text-amber-600">₩{processQualityStats.totalAmount.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-slate-900">₩{Math.round(processQualityStats.totalAmount).toLocaleString()}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-5">
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-200 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                     <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
@@ -517,7 +517,7 @@ const Dashboard: React.FC<DashboardProps> = ({ ncrData, customerMetrics, supplie
         <div className="group bg-white rounded-3xl p-8 shadow-sm border border-slate-200 hover:shadow-xl hover:border-slate-300 transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-lg shadow-rose-500/30">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
