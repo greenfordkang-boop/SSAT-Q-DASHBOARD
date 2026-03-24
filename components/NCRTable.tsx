@@ -35,11 +35,12 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = file.name;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (err) {
       alert('파일 열기 실패: ' + (err instanceof Error ? err.message : '알 수 없는 오류'));
     }
