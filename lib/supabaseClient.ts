@@ -38,12 +38,6 @@ export const getSupabase = () => {
   let key = DEFAULT_KEY;
 
   if (typeof window !== 'undefined') {
-    // 이전 버전 캐시 정리 (sb_publishable_ 키 무효화)
-    for (let v = 1; v <= 5; v++) {
-      localStorage.removeItem(`supabase_url_v${v}`);
-      localStorage.removeItem(`supabase_key_v${v}`);
-    }
-
     const storedUrl = localStorage.getItem(STORAGE_KEY_URL);
     const storedKey = localStorage.getItem(STORAGE_KEY_KEY);
 
@@ -73,7 +67,13 @@ export const supabase = getSupabase();
 
 // 관리자 전용 클라이언트 (RLS 우회 - access_logs 조회용)
 const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqanNxeWF3dm9qeWJ1eXJlaHJyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ2Njk0NywiZXhwIjoyMDg0MDQyOTQ3fQ.QwAVhhd4Jv_hPm3robfQuWzAYBnJR3kpaSZZxoBTVkw';
-const supabaseAdmin = createClient(DEFAULT_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+const supabaseAdmin = createClient(DEFAULT_URL, SERVICE_ROLE_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    storageKey: 'sb-admin-auth-token'
+  }
+});
 
 export const saveSupabaseConfig = (newUrl: string, newKey: string) => {
   const cleanUrl = newUrl.trim();

@@ -373,7 +373,7 @@ const App: React.FC = () => {
   const fetchAllData = async () => {
     setIsLoading(true);
     try {
-      // 0. 데이터베이스 테이블 존재 여부 확인 (공정품질 테이블)
+      // 0. 데이터베이스 테이블 존재 여부 확인
       const processQualityTableExists = await checkTableExists(supabase, 'process_quality_uploads');
       if (!processQualityTableExists) {
         console.warn('⚠️ 공정품질 테이블이 존재하지 않습니다. 데이터베이스 설정이 필요합니다.');
@@ -382,21 +382,57 @@ const App: React.FC = () => {
         return;
       }
 
-      // 1. NCR 데이터 가져오기
-      const { data: ncrEntries, error: ncrError } = await supabase
-        .from('ncr_entries')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // 모든 쿼리를 병렬 실행
+      const [
+        ncrResult,
+        cMetricsResult,
+        sMetricsResult,
+        oMetricsResult,
+        qrResult,
+        pqDataResult,
+        pqUploadsResult,
+        pdtDataResult,
+        pdtUploadsResult,
+        paintingDataResult,
+        paintingUploadsResult,
+        assemblyDataResult,
+        assemblyUploadsResult,
+        priceDataResult,
+        priceUploadsResult,
+      ] = await Promise.allSettled([
+        supabase.from('ncr_entries').select('*').order('created_at', { ascending: false }),
+        supabase.from('customer_metrics').select('*').order('month', { ascending: true }),
+        supabase.from('supplier_metrics').select('*').order('month', { ascending: true }),
+        supabase.from('outgoing_metrics').select('*').order('month', { ascending: true }),
+        supabase.from('quick_response_entries').select('*').order('date', { ascending: false }),
+        fetchAllRows('process_quality_data', 'data_date', false).catch(() => []),
+        supabase.from('process_quality_uploads').select('*').order('upload_date', { ascending: false }),
+        fetchAllRows('process_defect_type_data', 'data_date', false).catch(() => []),
+        supabase.from('process_defect_type_uploads').select('*').order('upload_date', { ascending: false }),
+        fetchAllRows('painting_defect_type_data', 'data_date', false).catch(() => []),
+        supabase.from('painting_defect_type_uploads').select('*').order('upload_date', { ascending: false }),
+        fetchAllRows('assembly_defect_type_data', 'data_date', false).catch(() => []),
+        supabase.from('assembly_defect_type_uploads').select('*').order('upload_date', { ascending: false }),
+        fetchAllRows('parts_price_data', 'created_at', false).catch(() => []),
+        supabase.from('parts_price_uploads').select('*').order('upload_date', { ascending: false }),
+      ]);
 
-      if (ncrError) {
-         handleError(ncrError, "데이터 조회(NCR)");
-         if (ncrError.message?.includes('Invalid API key')) {
-           setIsLoading(false);
-           return;
-         }
+      // Helper: settled result에서 data 추출
+      const extract = (result: PromiseSettledResult<any>, label: string): any[] => {
+        if (result.status === 'rejected') { console.warn(`${label} fetch failed:`, result.reason); return []; }
+        // fetchAllRows는 배열을 직접 반환, supabase query는 {data, error} 반환
+        const val = result.value;
+        if (Array.isArray(val)) return val;
+        if (val?.error) { console.warn(`${label} fetch warning:`, val.error.message); return []; }
+        return val?.data || [];
+      };
+
+      // 1. NCR
+      const ncrEntries = extract(ncrResult, 'NCR');
+      if (ncrResult.status === 'fulfilled' && ncrResult.value?.error?.message?.includes('Invalid API key')) {
+        setIsLoading(false); return;
       }
-      
-      setNcrData((ncrEntries || []).map((e: any) => ({
+      setNcrData(ncrEntries.map((e: any) => ({
         id: e.id, month: e.month, day: e.day, source: e.source, customer: e.customer,
         model: e.model, partName: e.part_name, partNo: e.part_no, defectContent: e.defect_content,
         outflowCause: e.outflow_cause, rootCause: e.root_cause, countermeasure: e.countermeasure,
@@ -406,354 +442,87 @@ const App: React.FC = () => {
         attachments: e.attachments || [], eightDData: e.eight_d_data
       })));
 
-      // 2. 고객 품질 실적 가져오기
-      const { data: cMetrics, error: cError } = await supabase
-        .from('customer_metrics')
-        .select('*')
-        .order('month', { ascending: true });
-      
-      if (cError) {
-         // 테이블 없음 에러는 무시하지 않고 경고 (하지만 앱은 계속 실행)
-         console.warn("Metrics Fetch Warning:", cError.message);
-      }
-      
-      const typedMetrics = (cMetrics || []).map((m: any) => ({
-        id: m.id,
-        year: Number(m.year),
-        customer: m.customer,
-        month: Number(m.month),
-        target: Number(m.target),
-        inspectionQty: Number(m.inspection_qty || 0),
-        defects: Number(m.defects || 0),
-        actual: Number(m.actual || 0)
-      }));
-      setCustomerMetrics(typedMetrics);
+      // 2. 고객 품질
+      setCustomerMetrics(extract(cMetricsResult, 'Customer Metrics').map((m: any) => ({
+        id: m.id, year: Number(m.year), customer: m.customer, month: Number(m.month),
+        target: Number(m.target), inspectionQty: Number(m.inspection_qty || 0),
+        defects: Number(m.defects || 0), actual: Number(m.actual || 0)
+      })));
 
-      // 3. 협력업체 품질 실적 가져오기
-      const { data: sMetrics, error: sError } = await supabase
-        .from('supplier_metrics')
-        .select('*')
-        .order('month', { ascending: true });
+      // 3. 협력업체 품질
+      setSupplierMetrics(extract(sMetricsResult, 'Supplier Metrics').map((m: any) => ({
+        id: m.id, year: Number(m.year), supplier: m.supplier, month: Number(m.month),
+        target: Number(m.target), incomingQty: Number(m.incoming_qty || 0),
+        inspectionQty: Number(m.inspection_qty || 0), defects: Number(m.defects || 0), actual: Number(m.actual || 0)
+      })));
 
-      if (sError) {
-         console.warn("Supplier Metrics Fetch Warning:", sError.message);
-      }
+      // 4. 출하 품질
+      setOutgoingMetrics(extract(oMetricsResult, 'Outgoing Metrics').map((m: any) => ({
+        id: m.id, year: Number(m.year), month: Number(m.month), target: Number(m.target),
+        inspectionQty: Number(m.inspection_qty || 0), defects: Number(m.defects || 0), actual: Number(m.actual || 0)
+      })));
 
-      const typedSupplierMetrics = (sMetrics || []).map((m: any) => ({
-        id: m.id,
-        year: Number(m.year),
-        supplier: m.supplier,
-        month: Number(m.month),
-        target: Number(m.target),
-        incomingQty: Number(m.incoming_qty || 0),
-        inspectionQty: Number(m.inspection_qty || 0),
-        defects: Number(m.defects || 0),
-        actual: Number(m.actual || 0)
-      }));
-      setSupplierMetrics(typedSupplierMetrics);
-
-      // 4. 출하 품질 실적 가져오기
-      const { data: oMetrics, error: oError } = await supabase
-        .from('outgoing_metrics')
-        .select('*')
-        .order('month', { ascending: true });
-
-      if (oError) {
-        console.warn("Outgoing Metrics Fetch Warning:", oError.message);
-      }
-
-      const typedOutgoingMetrics = (oMetrics || []).map((m: any) => ({
-        id: m.id,
-        year: Number(m.year),
-        month: Number(m.month),
-        target: Number(m.target),
-        inspectionQty: Number(m.inspection_qty || 0),
-        defects: Number(m.defects || 0),
-        actual: Number(m.actual || 0)
-      }));
-      setOutgoingMetrics(typedOutgoingMetrics);
-
-      // 5. 신속대응 추적 데이터 가져오기
-      const { data: qrData, error: qrError } = await supabase
-        .from('quick_response_entries')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (qrError) {
-        console.warn("Quick Response Fetch Warning:", qrError.message);
-      }
-
-      const typedQuickResponseData = (qrData || []).map((q: any) => ({
-        id: q.id,
-        date: q.date,
-        department: q.department,
-        machineNo: q.machine_no || '',
-        defectCount: Number(q.defect_count || 0),
-        model: q.model,
-        defectType: q.defect_type || '',
-        process: q.process || '',
-        defectContent: q.defect_content || '',
-        coating: q.coating || '',
-        area: q.area || '',
-        materialCode: q.material_code || '',
-        shielding: q.shielding || '',
-        action: q.action || '',
-        materialManager: q.material_manager || '',
+      // 5. 신속대응
+      setQuickResponseData(extract(qrResult, 'Quick Response').map((q: any) => ({
+        id: q.id, date: q.date, department: q.department, machineNo: q.machine_no || '',
+        defectCount: Number(q.defect_count || 0), model: q.model, defectType: q.defect_type || '',
+        process: q.process || '', defectContent: q.defect_content || '', coating: q.coating || '',
+        area: q.area || '', materialCode: q.material_code || '', shielding: q.shielding || '',
+        action: q.action || '', materialManager: q.material_manager || '',
         meetingAttendance: q.meeting_attendance || '',
-        status24H: q.status_24h || 'N/A',
-        status3D: q.status_3d || 'N/A',
-        status14DAY: q.status_14day || 'N/A',
-        status24D: q.status_24d || 'N/A',
-        status25D: q.status_25d || 'N/A',
-        status30D: q.status_30d || 'N/A',
-        customerMM: q.customer_mm || '',
-        remarks: q.remarks || ''
-      }));
-      setQuickResponseData(typedQuickResponseData);
+        status24H: q.status_24h || 'N/A', status3D: q.status_3d || 'N/A',
+        status14DAY: q.status_14day || 'N/A', status24D: q.status_24d || 'N/A',
+        status25D: q.status_25d || 'N/A', status30D: q.status_30d || 'N/A',
+        customerMM: q.customer_mm || '', remarks: q.remarks || ''
+      })));
 
-      // 6. 공정불량 데이터 가져오기 (전체 조회 - 1000건 제한 해제)
-      let pqData: any[] = [];
-      try {
-        pqData = await fetchAllRows('process_quality_data', 'data_date', false);
-      } catch (pqError: any) {
-        console.warn("Process Quality Data Fetch Warning:", pqError.message);
-      }
+      // 불량유형 매핑 헬퍼
+      const mapDefectType = (p: any) => ({
+        id: p.id, uploadId: p.upload_id, customer: p.customer, partCode: p.part_code,
+        partName: p.part_name, process: p.process, vehicleModel: p.vehicle_model,
+        defectType1: Number(p.defect_type_1 || 0), defectType2: Number(p.defect_type_2 || 0),
+        defectType3: Number(p.defect_type_3 || 0), defectType4: Number(p.defect_type_4 || 0),
+        defectType5: Number(p.defect_type_5 || 0), defectType6: Number(p.defect_type_6 || 0),
+        defectType7: Number(p.defect_type_7 || 0), defectType8: Number(p.defect_type_8 || 0),
+        defectType9: Number(p.defect_type_9 || 0), defectType10: Number(p.defect_type_10 || 0),
+        defectTypesDetail: p.defect_types_detail || {}, totalDefects: Number(p.total_defects || 0),
+        dataDate: p.data_date, createdAt: p.created_at, updatedAt: p.updated_at
+      });
 
-      const typedProcessQualityData = (pqData || []).map((p: any) => ({
-        id: p.id,
-        uploadId: p.upload_id,
-        customer: p.customer,
-        partType: p.part_type,
-        vehicleModel: p.vehicle_model,
-        partCode: p.part_code || '',
-        productName: p.product_name,
-        productionQty: Number(p.production_qty || 0),
-        defectQty: Number(p.defect_qty || 0),
-        defectAmount: Number(p.defect_amount || 0),
-        defectRate: Number(p.defect_rate || 0),
-        dataDate: p.data_date,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at
-      }));
-      setProcessQualityData(typedProcessQualityData);
+      const mapUpload = (u: any) => ({
+        id: u.id, filename: u.filename, recordCount: Number(u.record_count || 0),
+        uploadDate: u.upload_date, createdAt: u.created_at
+      });
 
-      // 7. 공정불량 업로드 이력 가져오기
-      const { data: pqUploads, error: pqUploadError } = await supabase
-        .from('process_quality_uploads')
-        .select('*')
-        .order('upload_date', { ascending: false });
+      // 6-7. 공정불량
+      setProcessQualityData(extract(pqDataResult, 'Process Quality').map((p: any) => ({
+        id: p.id, uploadId: p.upload_id, customer: p.customer, partType: p.part_type,
+        vehicleModel: p.vehicle_model, partCode: p.part_code || '', productName: p.product_name,
+        productionQty: Number(p.production_qty || 0), defectQty: Number(p.defect_qty || 0),
+        defectAmount: Number(p.defect_amount || 0), defectRate: Number(p.defect_rate || 0),
+        dataDate: p.data_date, createdAt: p.created_at, updatedAt: p.updated_at
+      })));
+      setProcessQualityUploads(extract(pqUploadsResult, 'PQ Uploads').map(mapUpload));
 
-      if (pqUploadError) {
-        console.warn("Process Quality Upload Fetch Warning:", pqUploadError.message);
-      }
+      // 8-9. 공정불량유형
+      setProcessDefectTypeData(extract(pdtDataResult, 'Process Defect Type').map(mapDefectType));
+      setProcessDefectTypeUploads(extract(pdtUploadsResult, 'PDT Uploads').map(mapUpload));
 
-      const typedProcessQualityUploads = (pqUploads || []).map((u: any) => ({
-        id: u.id,
-        filename: u.filename,
-        recordCount: Number(u.record_count || 0),
-        uploadDate: u.upload_date,
-        createdAt: u.created_at
-      }));
-      setProcessQualityUploads(typedProcessQualityUploads);
+      // 10-11. 도장불량유형
+      setPaintingDefectTypeData(extract(paintingDataResult, 'Painting Defect Type').map(mapDefectType));
+      setPaintingDefectTypeUploads(extract(paintingUploadsResult, 'Painting Uploads').map(mapUpload));
 
-      // 8. 공정불량유형 데이터 가져오기 (전체 조회)
-      let pdtData: any[] = [];
-      try {
-        pdtData = await fetchAllRows('process_defect_type_data', 'data_date', false);
-      } catch (pdtError: any) {
-        console.warn("Process Defect Type Data Fetch Warning:", pdtError.message);
-      }
+      // 12-13. 조립불량유형
+      setAssemblyDefectTypeData(extract(assemblyDataResult, 'Assembly Defect Type').map(mapDefectType));
+      setAssemblyDefectTypeUploads(extract(assemblyUploadsResult, 'Assembly Uploads').map(mapUpload));
 
-      const typedProcessDefectTypeData = (pdtData || []).map((p: any) => ({
-        id: p.id,
-        uploadId: p.upload_id,
-        customer: p.customer,
-        partCode: p.part_code,
-        partName: p.part_name,
-        process: p.process,
-        vehicleModel: p.vehicle_model,
-        defectType1: Number(p.defect_type_1 || 0),
-        defectType2: Number(p.defect_type_2 || 0),
-        defectType3: Number(p.defect_type_3 || 0),
-        defectType4: Number(p.defect_type_4 || 0),
-        defectType5: Number(p.defect_type_5 || 0),
-        defectType6: Number(p.defect_type_6 || 0),
-        defectType7: Number(p.defect_type_7 || 0),
-        defectType8: Number(p.defect_type_8 || 0),
-        defectType9: Number(p.defect_type_9 || 0),
-        defectType10: Number(p.defect_type_10 || 0),
-        defectTypesDetail: p.defect_types_detail || {},
-        totalDefects: Number(p.total_defects || 0),
-        dataDate: p.data_date,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at
-      }));
-      setProcessDefectTypeData(typedProcessDefectTypeData);
-
-      // 9. 공정불량유형 업로드 이력 가져오기
-      const { data: pdtUploads, error: pdtUploadError } = await supabase
-        .from('process_defect_type_uploads')
-        .select('*')
-        .order('upload_date', { ascending: false });
-
-      if (pdtUploadError) {
-        console.warn("Process Defect Type Upload Fetch Warning:", pdtUploadError.message);
-      }
-
-      const typedProcessDefectTypeUploads = (pdtUploads || []).map((u: any) => ({
-        id: u.id,
-        filename: u.filename,
-        recordCount: Number(u.record_count || 0),
-        uploadDate: u.upload_date,
-        createdAt: u.created_at
-      }));
-      setProcessDefectTypeUploads(typedProcessDefectTypeUploads);
-
-      // 10. 도장불량유형 데이터 가져오기 (전체 조회)
-      let paintingData: any[] = [];
-      try {
-        paintingData = await fetchAllRows('painting_defect_type_data', 'data_date', false);
-      } catch (paintingError: any) {
-        console.warn("Painting Defect Type Data Fetch Warning:", paintingError.message);
-      }
-
-      const typedPaintingDefectTypeData = (paintingData || []).map((p: any) => ({
-        id: p.id,
-        uploadId: p.upload_id,
-        customer: p.customer,
-        partCode: p.part_code,
-        partName: p.part_name,
-        process: p.process,
-        vehicleModel: p.vehicle_model,
-        defectType1: Number(p.defect_type_1 || 0),
-        defectType2: Number(p.defect_type_2 || 0),
-        defectType3: Number(p.defect_type_3 || 0),
-        defectType4: Number(p.defect_type_4 || 0),
-        defectType5: Number(p.defect_type_5 || 0),
-        defectType6: Number(p.defect_type_6 || 0),
-        defectType7: Number(p.defect_type_7 || 0),
-        defectType8: Number(p.defect_type_8 || 0),
-        defectType9: Number(p.defect_type_9 || 0),
-        defectType10: Number(p.defect_type_10 || 0),
-        defectTypesDetail: p.defect_types_detail || {},
-        totalDefects: Number(p.total_defects || 0),
-        dataDate: p.data_date,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at
-      }));
-      setPaintingDefectTypeData(typedPaintingDefectTypeData);
-
-      // 11. 도장불량유형 업로드 이력 가져오기
-      const { data: paintingUploads, error: paintingUploadError } = await supabase
-        .from('painting_defect_type_uploads')
-        .select('*')
-        .order('upload_date', { ascending: false });
-
-      if (paintingUploadError) {
-        console.warn("Painting Defect Type Upload Fetch Warning:", paintingUploadError.message);
-      }
-
-      const typedPaintingDefectTypeUploads = (paintingUploads || []).map((u: any) => ({
-        id: u.id,
-        filename: u.filename,
-        recordCount: Number(u.record_count || 0),
-        uploadDate: u.upload_date,
-        createdAt: u.created_at
-      }));
-      setPaintingDefectTypeUploads(typedPaintingDefectTypeUploads);
-
-      // 12. 조립불량유형 데이터 가져오기 (전체 조회)
-      let assemblyData: any[] = [];
-      try {
-        assemblyData = await fetchAllRows('assembly_defect_type_data', 'data_date', false);
-      } catch (assemblyError: any) {
-        console.warn("Assembly Defect Type Data Fetch Warning:", assemblyError.message);
-      }
-
-      const typedAssemblyDefectTypeData = (assemblyData || []).map((p: any) => ({
-        id: p.id,
-        uploadId: p.upload_id,
-        customer: p.customer,
-        partCode: p.part_code,
-        partName: p.part_name,
-        process: p.process,
-        vehicleModel: p.vehicle_model,
-        defectType1: Number(p.defect_type_1 || 0),
-        defectType2: Number(p.defect_type_2 || 0),
-        defectType3: Number(p.defect_type_3 || 0),
-        defectType4: Number(p.defect_type_4 || 0),
-        defectType5: Number(p.defect_type_5 || 0),
-        defectType6: Number(p.defect_type_6 || 0),
-        defectType7: Number(p.defect_type_7 || 0),
-        defectType8: Number(p.defect_type_8 || 0),
-        defectType9: Number(p.defect_type_9 || 0),
-        defectType10: Number(p.defect_type_10 || 0),
-        defectTypesDetail: p.defect_types_detail || {},
-        totalDefects: Number(p.total_defects || 0),
-        dataDate: p.data_date,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at
-      }));
-      setAssemblyDefectTypeData(typedAssemblyDefectTypeData);
-
-      // 13. 조립불량유형 업로드 이력 가져오기
-      const { data: assemblyUploads, error: assemblyUploadError } = await supabase
-        .from('assembly_defect_type_uploads')
-        .select('*')
-        .order('upload_date', { ascending: false });
-
-      if (assemblyUploadError) {
-        console.warn("Assembly Defect Type Upload Fetch Warning:", assemblyUploadError.message);
-      }
-
-      const typedAssemblyDefectTypeUploads = (assemblyUploads || []).map((u: any) => ({
-        id: u.id,
-        filename: u.filename,
-        recordCount: Number(u.record_count || 0),
-        uploadDate: u.upload_date,
-        createdAt: u.created_at
-      }));
-      setAssemblyDefectTypeUploads(typedAssemblyDefectTypeUploads);
-
-      // 14. 부품단가 데이터 가져오기 (전체 조회 - 1000건 제한 해제)
-      let priceData: any[] = [];
-      try {
-        priceData = await fetchAllRows('parts_price_data', 'created_at', false);
-      } catch (priceError: any) {
-        console.warn("Parts Price Data Fetch Warning:", priceError.message);
-      }
-
-      const typedPartsPriceData = (priceData || []).map((p: any) => ({
-        id: p.id,
-        uploadId: p.upload_id,
-        partCode: p.part_code,
-        partName: p.part_name,
-        unitPrice: Number(p.unit_price || 0),
-        customer: p.customer,
-        vehicleModel: p.vehicle_model,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at
-      }));
-      setPartsPriceData(typedPartsPriceData);
-
-      // 15. 부품단가 업로드 이력 가져오기
-      const { data: priceUploads, error: priceUploadError } = await supabase
-        .from('parts_price_uploads')
-        .select('*')
-        .order('upload_date', { ascending: false });
-
-      if (priceUploadError) {
-        console.warn("Parts Price Upload Fetch Warning:", priceUploadError.message);
-      }
-
-      const typedPartsPriceUploads = (priceUploads || []).map((u: any) => ({
-        id: u.id,
-        filename: u.filename,
-        recordCount: Number(u.record_count || 0),
-        uploadDate: u.upload_date,
-        createdAt: u.created_at
-      }));
-      setPartsPriceUploads(typedPartsPriceUploads);
+      // 14-15. 부품단가
+      setPartsPriceData(extract(priceDataResult, 'Parts Price').map((p: any) => ({
+        id: p.id, uploadId: p.upload_id, partCode: p.part_code, partName: p.part_name,
+        unitPrice: Number(p.unit_price || 0), customer: p.customer, vehicleModel: p.vehicle_model,
+        createdAt: p.created_at, updatedAt: p.updated_at
+      })));
+      setPartsPriceUploads(extract(priceUploadsResult, 'Price Uploads').map(mapUpload));
 
     } catch (e: any) {
       console.error("Critical Data Fetch Error:", e);
