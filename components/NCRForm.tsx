@@ -40,8 +40,10 @@ const NCRForm: React.FC<NCRFormProps> = ({ initialData, onSave, onDelete, onCanc
   }, [initialData]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const newAttachment: NCRAttachment = {
@@ -55,7 +57,9 @@ const NCRForm: React.FC<NCRFormProps> = ({ initialData, onSave, onDelete, onCanc
         }));
       };
       reader.readAsDataURL(file);
-    }
+    });
+
+    e.target.value = '';
   };
 
   const removeAttachment = (index: number) => {
@@ -134,7 +138,7 @@ const NCRForm: React.FC<NCRFormProps> = ({ initialData, onSave, onDelete, onCanc
                   </div>
                 ))}
               </div>
-              <input type="file" onChange={handleFileChange} className="text-xs w-full file:bg-blue-50 file:border-0 file:rounded-full file:px-4 file:py-1.5 file:text-blue-700 file:font-bold" />
+              <input type="file" multiple onChange={handleFileChange} className="text-xs w-full file:bg-blue-50 file:border-0 file:rounded-full file:px-4 file:py-1.5 file:text-blue-700 file:font-bold" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

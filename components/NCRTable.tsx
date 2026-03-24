@@ -30,9 +30,14 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
   };
 
   const openAttachment = (file: NCRAttachment) => {
-    const blob = b64toBlob(file.data, file.type);
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    try {
+      const blob = b64toBlob(file.data, file.type);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      alert('파일 열기 실패: ' + (err instanceof Error ? err.message : '알 수 없는 오류'));
+    }
   };
 
   const b64toBlob = (b64Data: string, contentType: string = '', sliceSize: number = 512) => {
@@ -93,13 +98,17 @@ const NCRTable: React.FC<NCRTableProps> = ({ data, onEdit, onDelete, onOpen8D })
                 <td className="px-2 py-3 text-center">
                   {item.attachments && item.attachments.length > 0 ? (
                     <div className="flex flex-col items-center gap-1">
-                       <button 
-                         onClick={() => openAttachment(item.attachments[item.attachments.length - 1])}
-                         className="px-2 py-0.5 bg-blue-600 text-white rounded text-[9px] font-black hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-1"
-                       >
-                         <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                         PDF OPEN
-                       </button>
+                       {item.attachments.map((file, fileIdx) => (
+                         <button
+                           key={fileIdx}
+                           onClick={() => openAttachment(file)}
+                           className="px-2 py-0.5 bg-blue-600 text-white rounded text-[9px] font-black hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-1 w-full justify-center"
+                           title={file.name}
+                         >
+                           <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                           <span className="truncate max-w-[80px]">{file.name}</span>
+                         </button>
+                       ))}
                        <span className="text-[8px] text-slate-400 font-bold">{item.attachments.length} files attached</span>
                     </div>
                   ) : <span className="text-slate-300">-</span>}
